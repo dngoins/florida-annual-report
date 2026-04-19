@@ -1,0 +1,60 @@
+name: Agent Task
+description: Ask Claude to perform a task in this repository
+title: "[Agent]: "
+labels: ["agent"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤖 Claude Agent Task
+        
+        Submitting this issue will trigger the Claude AI agent to work on your request.
+        The agent can read and write files, create branches, open pull requests, and post progress updates.
+        
+        > **Note:** Requires the `ANTHROPIC_API_KEY` secret to be configured in repository settings.
+
+  - type: textarea
+    id: task
+    attributes:
+      label: Task Description
+      description: Describe clearly what you want the agent to do.
+      placeholder: |
+        e.g. "Create a Playwright test for the document upload flow in src/tests/"
+        e.g. "Add a confidence scoring unit test for the extraction pipeline"
+        e.g. "Update docs/reference/architecture.md to add the new notification service"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Task Type
+      options:
+        - Write or update code
+        - Write or update documentation
+        - Create or update tests
+        - Refactor existing code
+        - Research and summarise
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any relevant background, constraints, or files the agent should reference.
+      placeholder: |
+        - Relevant files: src/extraction/pipeline.py
+        - Must follow the confidence gate described in CONSTITUTION.md
+        - Should not modify the audit_logs table schema
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety Checklist
+      options:
+        - label: This task does not require submitting anything to Sunbiz
+          required: true
+        - label: This task does not involve production credentials or secrets
+          required: true
