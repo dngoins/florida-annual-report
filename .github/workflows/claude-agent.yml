@@ -1,0 +1,69 @@
+name: Claude Agent Loop
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+# Only one agent run per issue at a time
+concurrency:
+  group: agent-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  run-agent:
+    name: Run Claude Agent
+    runs-on: ubuntu-latest
+
+    # Run when:
+    #   - An issue is opened/labeled AND has the 'agent' label
+    #   - An issue comment is created on an issue with the 'agent' label
+    #     AND the commenter is not the bot itself
+    if: |
+      (
+        github.event_name == 'issues' &&
+        contains(github.event.issue.labels.*.name, 'agent')
+      ) || (
+        github.event_name == 'issue_comment' &&
+        contains(github.event.issue.labels.*.name, 'agent') &&
+        github.event.comment.user.login != 'github-actions[bot]' &&
+        github.event.comment.user.login != 'copilot[bot]'
+      )
+
+    permissions:
+      contents: write        # create branches, commit files
+      issues: write          # post comments, add labels, close issues
+      pull-requests: write   # create pull requests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install anthropic==0.40.0
+
+      - name: Configure git identity
+        run: |
+          git config user.email "claude-agent@github-actions"
+          git config user.name "Claude Agent"
+
+      - name: Run Claude agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body || '' }}
+          COMMENT_USER: ${{ github.event.comment.user.login || '' }}
+        run: python scripts/claude_agent.py

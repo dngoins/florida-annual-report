@@ -1,0 +1,52 @@
+# GitHub Labels
+
+# Labels are synced to the repository via the label-sync workflow.
+# Add new labels here and they will be created/updated automatically.
+
+labels:
+  # ── Agent labels ──────────────────────────────────────────────────────────
+  - name: agent
+    color: "7057ff"
+    description: "Triggers the Claude AI agent loop"
+
+  - name: needs-human
+    color: "e11d48"
+    description: "Agent could not complete — requires human intervention"
+
+  - name: agent-in-progress
+    color: "f97316"
+    description: "Claude agent is currently working on this issue"
+
+  # ── Type labels ───────────────────────────────────────────────────────────
+  - name: bug
+    color: "d73a4a"
+    description: "Something isn't working"
+
+  - name: enhancement
+    color: "a2eeef"
+    description: "New feature or request"
+
+  - name: documentation
+    color: "0075ca"
+    description: "Improvements or additions to documentation"
+
+  - name: compliance
+    color: "e4e669"
+    description: "Florida regulatory or filing compliance"
+
+  - name: security
+    color: "b60205"
+    description: "Security vulnerability or hardening"
+
+  # ── Status labels ─────────────────────────────────────────────────────────
+  - name: needs-triage
+    color: "ededed"
+    description: "Needs review and prioritisation"
+
+  - name: blocked
+    color: "e99695"
+    description: "Blocked by an external dependency"
+
+  - name: wontfix
+    color: "ffffff"
+    description: "This will not be worked on"
