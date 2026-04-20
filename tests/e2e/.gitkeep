@@ -1,0 +1,3 @@
+# End-to-end tests directory
+# Tests that verify complete user workflows
+# Uses Playwright for browser automation
