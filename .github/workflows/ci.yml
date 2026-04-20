@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Job 1: Lint (fail-fast gate) ────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install flake8 -r requirements.txt
+
+      - name: flake8
+        run: flake8 src/services/extraction-service --max-line-length=120 --exclude=__pycache__
+
+  # ── Job 2: Node.js tests (Jest) ─────────────────────────────
+  test-node:
+    name: Test (Node.js)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest tests with coverage
+        run: npm run test:coverage
+        env:
+          NODE_ENV: test
+          CI: true
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: node-coverage
+          path: coverage/
+          retention-days: 7
+
+  # ── Job 3: Python tests (pytest) ────────────────────────────
+  test-python:
+    name: Test (Python)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest pytest-cov -r requirements.txt
+
+      - name: Run pytest with coverage
+        run: pytest tests/ --cov=src/services/extraction-service --cov-report=xml --cov-report=term-missing
+        env:
+          PYTHONPATH: src/services/extraction-service
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage
+          path: coverage.xml
+          retention-days: 7
+
+  # ── Job 4: Docker build verification ────────────────────────
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: |
+          if [ -f Dockerfile ]; then
+            docker build -f Dockerfile -t florida-annual-report-backend:ci .
+            echo "✅ Backend image built"
+          else
+            echo "⚠️  Dockerfile not found, skipping backend build"
+          fi
+
+      - name: Build frontend image
+        run: |
+          if [ -f Dockerfile.frontend ]; then
+            docker build -f Dockerfile.frontend -t florida-annual-report-frontend:ci .
+            echo "✅ Frontend image built"
+          else
+            echo "⚠️  Dockerfile.frontend not found, skipping frontend build"
+          fi
+
+  # ── Job 5: CI status gate (for branch protection) ───────────
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [lint, test-node, test-python, build-docker]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.lint.result }}" != "success" || \
+                "${{ needs.test-node.result }}" != "success" || \
+                "${{ needs.test-python.result }}" != "success" || \
+                "${{ needs.build-docker.result }}" != "success" ]]; then
+            echo "❌ One or more CI jobs failed."
+            exit 1
+          fi
+          echo "✅ All CI checks passed."
