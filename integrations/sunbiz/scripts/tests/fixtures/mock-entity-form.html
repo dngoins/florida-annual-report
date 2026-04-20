@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Florida Annual Report - Mock Entity Form</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+    .form-section h2 { margin-top: 0; color: #003366; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { background-color: #003366; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+    button:hover { background-color: #004499; }
+    .officers-container { border: 1px dashed #999; padding: 15px; margin-top: 10px; }
+    .officer-row { display: grid; grid-template-columns: 1fr 2fr 3fr; gap: 10px; margin-bottom: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
+    .validation-error { color: red; font-size: 12px; margin-top: 5px; display: none; }
+    .captcha-section { display: none; background: #fff3cd; padding: 20px; border-radius: 5px; }
+    .payment-section { display: none; background: #d4edda; padding: 20px; border-radius: 5px; }
+    [role="alert"] { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Florida Annual Report Filing</h1>
+  
+  <!-- Filing Start Section -->
+  <div class="form-section" id="filing-start">
+    <h2>Entity Search</h2>
+    <div class="form-group">
+      <label for="DocumentNumber">Document Number</label>
+      <input type="text" id="DocumentNumber" name="DocumentNumber" aria-label="Document Number" placeholder="P12345678">
+    </div>
+    <button type="button" id="continue-to-form">Continue</button>
+  </div>
+
+  <!-- Entity Form Section -->
+  <div class="form-section" id="entity-form" data-section="entity-form">
+    <h2>Entity Information</h2>
+    
+    <!-- Pre-filled Entity Info (read-only display) -->
+    <div class="form-group">
+      <label>Entity Name</label>
+      <span id="entity-name" data-field="entity-name">ABC Corporation</span>
+    </div>
+    <div class="form-group">
+      <label>Document Number</label>
+      <span id="doc-number-display" data-field="document-number">P12345678</span>
+    </div>
+    <div class="form-group">
+      <label>Filing Year</label>
+      <span id="filing-year" data-field="filing-year">2026</span>
+    </div>
+
+    <!-- Principal Address -->
+    <h3>Principal Address</h3>
+    <div class="form-group">
+      <label for="principal-street">Principal Street Address</label>
+      <input type="text" id="principal-street" name="principalStreet" aria-label="Principal Street Address" value="123 Main Street">
+    </div>
+    <div class="form-group">
+      <label for="principal-city">City</label>
+      <input type="text" id="principal-city" name="principalCity" aria-label="Principal City" value="Miami">
+    </div>
+    <div class="form-group">
+      <label for="principal-state">State</label>
+      <select id="principal-state" name="principalState" aria-label="Principal State">
+        <option value="">Select State</option>
+        <option value="FL" selected>Florida</option>
+        <option value="GA">Georgia</option>
+        <option value="AL">Alabama</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="principal-zip">Zip</label>
+      <input type="text" id="principal-zip" name="principalZip" aria-label="Principal Zip" value="33101">
+    </div>
+
+    <!-- Mailing Address -->
+    <h3>Mailing Address</h3>
+    <div class="form-group">
+      <label for="mailing-street">Mailing Street Address</label>
+      <input type="text" id="mailing-street" name="mailingStreet" aria-label="Mailing Street Address" value="PO Box 456">
+    </div>
+    <div class="form-group">
+      <label for="mailing-city">City</label>
+      <input type="text" id="mailing-city" name="mailingCity" aria-label="Mailing City" value="Miami">
+    </div>
+    <div class="form-group">
+      <label for="mailing-state">State</label>
+      <select id="mailing-state" name="mailingState" aria-label="Mailing State">
+        <option value="">Select State</option>
+        <option value="FL" selected>Florida</option>
+        <option value="GA">Georgia</option>
+        <option value="AL">Alabama</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="mailing-zip">Zip</label>
+      <input type="text" id="mailing-zip" name="mailingZip" aria-label="Mailing Zip" value="33101">
+    </div>
+
+    <!-- Registered Agent -->
+    <h3>Registered Agent</h3>
+    <div class="form-group">
+      <label for="agent-name">Registered Agent Name</label>
+      <input type="text" id="agent-name" name="agentName" aria-label="Registered Agent Name" value="John Smith, Esq.">
+    </div>
+    <div class="form-group">
+      <label for="agent-street">Agent Street Address</label>
+      <input type="text" id="agent-street" name="agentStreet" aria-label="Agent Street Address" value="789 Legal Ave">
+    </div>
+    <div class="form-group">
+      <label for="agent-city">City</label>
+      <input type="text" id="agent-city" name="agentCity" aria-label="Agent City" value="Miami">
+    </div>
+    <div class="form-group">
+      <label for="agent-state">State</label>
+      <select id="agent-state" name="agentState" aria-label="Agent State">
+        <option value="">Select State</option>
+        <option value="FL" selected>Florida</option>
+        <option value="GA">Georgia</option>
+        <option value="AL">Alabama</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="agent-zip">Zip</label>
+      <input type="text" id="agent-zip" name="agentZip" aria-label="Agent Zip" value="33102">
+    </div>
+
+    <!-- Officers Section -->
+    <h3>Officers / Directors</h3>
+    <div class="officers-container" data-section="officers" id="officers-section">
+      <div class="officer-row" data-officer-index="0">
+        <div>
+          <label>Title</label>
+          <select aria-label="Officer Title" name="officers[0].title">
+            <option value="">Select</option>
+            <option value="P" selected>President</option>
+            <option value="VP">Vice President</option>
+            <option value="S">Secretary</option>
+            <option value="T">Treasurer</option>
+            <option value="D">Director</option>
+          </select>
+        </div>
+        <div>
+          <label>Name</label>
+          <input type="text" aria-label="Officer Name" name="officers[0].name" value="Jane Doe">
+        </div>
+        <div>
+          <label>Address</label>
+          <input type="text" aria-label="Officer Address" name="officers[0].address" value="123 Main St, Miami FL 33101">
+        </div>
+      </div>
+      <div class="officer-row" data-officer-index="1">
+        <div>
+          <label>Title</label>
+          <select aria-label="Officer Title" name="officers[1].title">
+            <option value="">Select</option>
+            <option value="P">President</option>
+            <option value="VP">Vice President</option>
+            <option value="S" selected>Secretary</option>
+            <option value="T">Treasurer</option>
+            <option value="D">Director</option>
+          </select>
+        </div>
+        <div>
+          <label>Name</label>
+          <input type="text" aria-label="Officer Name" name="officers[1].name" value="Bob Johnson">
+        </div>
+        <div>
+          <label>Address</label>
+          <input type="text" aria-label="Officer Address" name="officers[1].address" value="456 Oak Ave, Miami FL 33101">
+        </div>
+      </div>
+      <button type="button" id="add-officer">Add Officer</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <button type="button" id="continue-to-review">Continue to Review</button>
+    </div>
+  </div>
+
+  <!-- Review Page -->
+  <div class="form-section" id="review-page" style="display: none;">
+    <h2>Review Your Information</h2>
+    <p>Please review the information below before proceeding to signature.</p>
+    <div id="review-summary"></div>
+    <button type="button" id="edit-form">Edit</button>
+    <button type="button" id="continue-to-signature">Continue to Signature</button>
+  </div>
+
+  <!-- Signature Page -->
+  <div class="form-section" id="signature-page" style="display: none;">
+    <h2>Electronic Signature</h2>
+    <div class="form-group">
+      <label for="signature">Electronic Signature</label>
+      <input type="text" id="signature" name="signature" aria-label="Electronic Signature" placeholder="Type your full legal name">
+    </div>
+    <div class="form-group">
+      <input type="checkbox" id="certify" name="certify" aria-label="I certify">
+      <label for="certify" style="display: inline;">I certify that the information provided is true and correct.</label>
+    </div>
+    <button type="submit" id="submit-form">Submit</button>
+  </div>
+
+  <!-- CAPTCHA Section (for testing detection) -->
+  <div class="captcha-section" id="captcha-section">
+    <h3>Security Verification</h3>
+    <div class="g-recaptcha" data-sitekey="test-site-key">
+      <iframe src="about:blank" title="reCAPTCHA"></iframe>
+    </div>
+  </div>
+
+  <!-- Payment Section (for testing detection) -->
+  <div class="payment-section" id="payment-section" data-section="payment">
+    <h3>Payment Information</h3>
+    <div class="form-group">
+      <label for="card-number">Card Number</label>
+      <input type="text" id="card-number" name="cardNumber" aria-label="Card Number" placeholder="1234 5678 9012 3456">
+    </div>
+    <div class="form-group">
+      <label for="expiry">Expiration Date</label>
+      <input type="text" id="expiry" name="expiry" aria-label="Expiration Date" placeholder="MM/YY">
+    </div>
+    <div class="form-group">
+      <label for="cvv">CVV</label>
+      <input type="text" id="cvv" name="cvv" aria-label="CVV" placeholder="123">
+    </div>
+    <button type="button" id="process-payment">Process Payment</button>
+  </div>
+
+  <!-- Confirmation Page -->
+  <div class="form-section" id="confirmation-page" style="display: none;">
+    <h2>Filing Submitted Successfully</h2>
+    <p>Your annual report has been submitted.</p>
+    <div class="form-group">
+      <label>Confirmation Number</label>
+      <span id="confirmation-number" data-field="confirmation-number" class="confirmation">AR2026-123456789</span>
+    </div>
+    <a href="#" id="download-receipt">Download Receipt</a>
+  </div>
+
+  <!-- Error Display (for testing) -->
+  <div id="error-display" style="display: none;">
+    <div role="alert" class="validation-error">
+      <span class="error-message"></span>
+    </div>
+  </div>
+
+  <script>
+    // Simple page navigation for testing
+    document.getElementById('continue-to-form')?.addEventListener('click', () => {
+      document.getElementById('filing-start').style.display = 'none';
+      document.getElementById('entity-form').style.display = 'block';
+    });
+
+    document.getElementById('continue-to-review')?.addEventListener('click', () => {
+      document.getElementById('entity-form').style.display = 'none';
+      document.getElementById('review-page').style.display = 'block';
+    });
+
+    document.getElementById('continue-to-signature')?.addEventListener('click', () => {
+      document.getElementById('review-page').style.display = 'none';
+      document.getElementById('signature-page').style.display = 'block';
+    });
+
+    document.getElementById('edit-form')?.addEventListener('click', () => {
+      document.getElementById('review-page').style.display = 'none';
+      document.getElementById('entity-form').style.display = 'block';
+    });
+
+    document.getElementById('add-officer')?.addEventListener('click', () => {
+      const container = document.getElementById('officers-section');
+      const rows = container.querySelectorAll('.officer-row');
+      const newIndex = rows.length;
+      const newRow = document.createElement('div');
+      newRow.className = 'officer-row';
+      newRow.setAttribute('data-officer-index', newIndex);
+      newRow.innerHTML = `
+        <div>
+          <label>Title</label>
+          <select aria-label="Officer Title" name="officers[${newIndex}].title">
+            <option value="">Select</option>
+            <option value="P">President</option>
+            <option value="VP">Vice President</option>
+            <option value="S">Secretary</option>
+            <option value="T">Treasurer</option>
+            <option value="D">Director</option>
+          </select>
+        </div>
+        <div>
+          <label>Name</label>
+          <input type="text" aria-label="Officer Name" name="officers[${newIndex}].name" value="">
+        </div>
+        <div>
+          <label>Address</label>
+          <input type="text" aria-label="Officer Address" name="officers[${newIndex}].address" value="">
+        </div>
+      `;
+      container.insertBefore(newRow, document.getElementById('add-officer'));
+    });
+
+    // Functions to show/hide captcha and payment for testing
+    window.showCaptcha = () => {
+      document.getElementById('captcha-section').style.display = 'block';
+    };
+    window.showPayment = () => {
+      document.getElementById('payment-section').style.display = 'block';
+    };
+    window.showConfirmation = () => {
+      document.getElementById('signature-page').style.display = 'none';
+      document.getElementById('confirmation-page').style.display = 'block';
+    };
+    window.showError = (message) => {
+      const errorDisplay = document.getElementById('error-display');
+      errorDisplay.style.display = 'block';
+      errorDisplay.querySelector('.error-message').textContent = message;
+    };
+  </script>
+</body>
+</html>
