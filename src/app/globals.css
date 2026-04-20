@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for review form */
+@layer components {
+  .confidence-high {
+    @apply bg-green-100 border-green-500 text-green-800;
+  }
+  
+  .confidence-medium {
+    @apply bg-yellow-100 border-yellow-500 text-yellow-800;
+  }
+  
+  .confidence-low {
+    @apply bg-red-100 border-red-500 text-red-800;
+  }
+}
+
+/* Base styles */
+body {
+  @apply antialiased text-gray-900;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-150;
+}
