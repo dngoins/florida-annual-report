@@ -1,0 +1,188 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-04-19",
+  "notes": "Sunbiz Annual Report form selectors. Use label-based matching as primary strategy.",
+  
+  "filingStart": {
+    "url": "https://services.sunbiz.org/Filings/AnnualReport/FilingStart",
+    "documentNumberInput": {
+      "primary": "input[aria-label='Document Number']",
+      "fallback": "//input[@id='DocumentNumber' or contains(@name, 'DocumentNumber')]",
+      "labelMatch": "Document Number"
+    },
+    "continueButton": {
+      "primary": "button:has-text('Continue')",
+      "fallback": "//button[contains(text(), 'Continue') or @type='submit']"
+    }
+  },
+
+  "entityForm": {
+    "principalAddress": {
+      "streetAddress": {
+        "primary": "input[aria-label='Principal Street Address']",
+        "fallback": "//input[contains(@id, 'PrincipalAddress') or contains(@name, 'principalStreet')]",
+        "labelMatch": "Principal Address"
+      },
+      "city": {
+        "primary": "input[aria-label='Principal City']",
+        "fallback": "//input[contains(@id, 'PrincipalCity') or contains(@name, 'principalCity')]",
+        "labelMatch": "City"
+      },
+      "state": {
+        "primary": "select[aria-label='Principal State']",
+        "fallback": "//select[contains(@id, 'PrincipalState') or contains(@name, 'principalState')]",
+        "labelMatch": "State"
+      },
+      "zipCode": {
+        "primary": "input[aria-label='Principal Zip']",
+        "fallback": "//input[contains(@id, 'PrincipalZip') or contains(@name, 'principalZip')]",
+        "labelMatch": "Zip"
+      }
+    },
+    "mailingAddress": {
+      "streetAddress": {
+        "primary": "input[aria-label='Mailing Street Address']",
+        "fallback": "//input[contains(@id, 'MailingAddress') or contains(@name, 'mailingStreet')]",
+        "labelMatch": "Mailing Address"
+      },
+      "city": {
+        "primary": "input[aria-label='Mailing City']",
+        "fallback": "//input[contains(@id, 'MailingCity') or contains(@name, 'mailingCity')]",
+        "labelMatch": "City"
+      },
+      "state": {
+        "primary": "select[aria-label='Mailing State']",
+        "fallback": "//select[contains(@id, 'MailingState') or contains(@name, 'mailingState')]",
+        "labelMatch": "State"
+      },
+      "zipCode": {
+        "primary": "input[aria-label='Mailing Zip']",
+        "fallback": "//input[contains(@id, 'MailingZip') or contains(@name, 'mailingZip')]",
+        "labelMatch": "Zip"
+      }
+    },
+    "registeredAgent": {
+      "name": {
+        "primary": "input[aria-label='Registered Agent Name']",
+        "fallback": "//input[contains(@id, 'AgentName') or contains(@name, 'agentName')]",
+        "labelMatch": "Registered Agent"
+      },
+      "streetAddress": {
+        "primary": "input[aria-label='Agent Street Address']",
+        "fallback": "//input[contains(@id, 'AgentAddress') or contains(@name, 'agentStreet')]",
+        "labelMatch": "Agent Address"
+      },
+      "city": {
+        "primary": "input[aria-label='Agent City']",
+        "fallback": "//input[contains(@id, 'AgentCity') or contains(@name, 'agentCity')]",
+        "labelMatch": "City"
+      },
+      "state": {
+        "primary": "select[aria-label='Agent State']",
+        "fallback": "//select[contains(@id, 'AgentState') or contains(@name, 'agentState')]",
+        "labelMatch": "State"
+      },
+      "zipCode": {
+        "primary": "input[aria-label='Agent Zip']",
+        "fallback": "//input[contains(@id, 'AgentZip') or contains(@name, 'agentZip')]",
+        "labelMatch": "Zip"
+      }
+    },
+    "officers": {
+      "container": {
+        "primary": "[data-section='officers']",
+        "fallback": "//div[contains(@class, 'officers') or contains(@id, 'Officers')]"
+      },
+      "addOfficerButton": {
+        "primary": "button:has-text('Add Officer')",
+        "fallback": "//button[contains(text(), 'Add Officer') or contains(text(), 'Add Director')]"
+      },
+      "officerRow": {
+        "title": {
+          "primary": "select[aria-label='Officer Title']",
+          "fallback": "//select[contains(@name, 'title')]"
+        },
+        "name": {
+          "primary": "input[aria-label='Officer Name']",
+          "fallback": "//input[contains(@name, 'officerName')]"
+        },
+        "address": {
+          "primary": "input[aria-label='Officer Address']",
+          "fallback": "//input[contains(@name, 'officerAddress')]"
+        }
+      }
+    }
+  },
+
+  "reviewPage": {
+    "continueButton": {
+      "primary": "button:has-text('Continue to Signature')",
+      "fallback": "//button[contains(text(), 'Continue') or contains(text(), 'Proceed')]"
+    },
+    "editButton": {
+      "primary": "button:has-text('Edit')",
+      "fallback": "//a[contains(text(), 'Edit') or contains(@href, 'edit')]"
+    }
+  },
+
+  "signaturePage": {
+    "signatureInput": {
+      "primary": "input[aria-label='Electronic Signature']",
+      "fallback": "//input[contains(@id, 'Signature') or contains(@name, 'signature')]",
+      "labelMatch": "Signature"
+    },
+    "certificationCheckbox": {
+      "primary": "input[type='checkbox'][aria-label*='certify']",
+      "fallback": "//input[@type='checkbox' and (contains(@id, 'certify') or contains(@name, 'certify'))]"
+    },
+    "submitButton": {
+      "primary": "button:has-text('Submit')",
+      "fallback": "//button[contains(text(), 'Submit') or @type='submit']"
+    }
+  },
+
+  "captchaDetection": {
+    "indicators": [
+      "iframe[src*='recaptcha']",
+      "iframe[src*='hcaptcha']",
+      "[class*='captcha']",
+      "[id*='captcha']",
+      "//div[contains(@class, 'g-recaptcha')]"
+    ]
+  },
+
+  "paymentDetection": {
+    "indicators": [
+      "[data-section='payment']",
+      "input[aria-label*='Card Number']",
+      "input[aria-label*='Credit Card']",
+      "//div[contains(@class, 'payment') or contains(@id, 'payment')]",
+      "//input[contains(@name, 'cardNumber') or contains(@name, 'creditCard')]"
+    ]
+  },
+
+  "confirmationPage": {
+    "confirmationNumber": {
+      "primary": "[data-field='confirmation-number']",
+      "fallback": "//span[contains(@class, 'confirmation') or contains(@id, 'confirmation')]",
+      "labelMatch": "Confirmation Number"
+    },
+    "receiptLink": {
+      "primary": "a:has-text('Download Receipt')",
+      "fallback": "//a[contains(text(), 'Receipt') or contains(@href, 'receipt')]"
+    }
+  },
+
+  "errorIndicators": {
+    "validationErrors": [
+      ".validation-error",
+      ".field-error",
+      "[role='alert']",
+      "//div[contains(@class, 'error') and contains(@class, 'message')]"
+    ],
+    "systemErrors": [
+      ".system-error",
+      "//div[contains(text(), 'error') and contains(text(), 'occurred')]"
+    ]
+  }
+}
