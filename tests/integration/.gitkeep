@@ -1,0 +1,3 @@
+# Integration tests directory
+# Tests that verify interactions between components
+# May require external services (database, APIs)
