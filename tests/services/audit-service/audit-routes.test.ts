@@ -7,7 +7,7 @@
  * @module tests/services/audit-service/audit-routes.test
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 
 // Mock Express app and request/response objects for testing
 function createMockReq(body = {}, params = {}, query = {}, locals = {}) {

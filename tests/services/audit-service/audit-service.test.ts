@@ -7,7 +7,7 @@
  * @module tests/services/audit-service/audit-service.test
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import {
   AuditService,
   InMemoryAuditRepository,

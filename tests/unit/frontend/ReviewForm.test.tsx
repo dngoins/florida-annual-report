@@ -1,9 +1,10 @@
+/** @jest-environment jsdom */
 /**
  * Review Form Component Tests
  * TDD tests for review form UI with confidence highlighting
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { jest } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReviewForm } from '@/components/ReviewForm';
@@ -19,11 +20,11 @@ import {
 } from '@/types/review';
 
 // Mock API
-vi.mock('@/lib/api', () => ({
-  getReviewData: vi.fn(),
-  updateField: vi.fn(),
-  submitReview: vi.fn(),
-  autoSaveField: vi.fn(),
+jest.mock('@/lib/api', () => ({
+  getReviewData: jest.fn(),
+  updateField: jest.fn(),
+  submitReview: jest.fn(),
+  autoSaveField: jest.fn(),
 }));
 
 const mockField = (overrides: Partial<ExtractedField> = {}): ExtractedField => ({
@@ -131,7 +132,7 @@ describe('countUnresolvedRedFields', () => {
 describe('ConfidenceField', () => {
   it('renders field with correct confidence color', () => {
     const field = mockField({ confidence: 0.95 });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     const container = screen.getByTestId('confidence-field-field-1');
     expect(container.className).toContain('green');
@@ -139,7 +140,7 @@ describe('ConfidenceField', () => {
 
   it('renders yellow for medium confidence', () => {
     const field = mockField({ confidence: 0.80 });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     const container = screen.getByTestId('confidence-field-field-1');
     expect(container.className).toContain('yellow');
@@ -147,7 +148,7 @@ describe('ConfidenceField', () => {
 
   it('renders red for low confidence', () => {
     const field = mockField({ confidence: 0.60 });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     const container = screen.getByTestId('confidence-field-field-1');
     expect(container.className).toContain('red');
@@ -155,21 +156,21 @@ describe('ConfidenceField', () => {
 
   it('shows edit button for low/medium confidence fields', () => {
     const field = mockField({ confidence: 0.70 });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
   });
 
   it('shows accept button for low/medium confidence fields', () => {
     const field = mockField({ confidence: 0.70 });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     expect(screen.getByRole('button', { name: /accept/i })).toBeInTheDocument();
   });
 
   it('enables inline editing when edit button is clicked', async () => {
     const field = mockField({ confidence: 0.70 });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     await userEvent.click(screen.getByRole('button', { name: /edit/i }));
     
@@ -178,7 +179,7 @@ describe('ConfidenceField', () => {
 
   it('shows original value as placeholder when editing', async () => {
     const field = mockField({ confidence: 0.70, extracted_value: 'Original Value' });
-    render(<ConfidenceField field={field} onUpdate={vi.fn()} />);
+    render(<ConfidenceField field={field} onUpdate={jest.fn()} />);
     
     await userEvent.click(screen.getByRole('button', { name: /edit/i }));
     
@@ -187,7 +188,7 @@ describe('ConfidenceField', () => {
   });
 
   it('calls onUpdate on blur with auto-save', async () => {
-    const onUpdate = vi.fn();
+    const onUpdate = jest.fn();
     const field = mockField({ confidence: 0.70 });
     render(<ConfidenceField field={field} onUpdate={onUpdate} />);
     
@@ -202,7 +203,7 @@ describe('ConfidenceField', () => {
   });
 
   it('marks field as resolved when accept button is clicked', async () => {
-    const onUpdate = vi.fn();
+    const onUpdate = jest.fn();
     const field = mockField({ confidence: 0.70, extracted_value: 'Extracted' });
     render(<ConfidenceField field={field} onUpdate={onUpdate} />);
     
@@ -249,7 +250,7 @@ describe('ReviewForm', () => {
   const mockData = mockReviewData();
 
   it('renders all extracted fields', () => {
-    render(<ReviewForm data={mockData} onSubmit={vi.fn()} />);
+    render(<ReviewForm data={mockData} onSubmit={jest.fn()} />);
     
     expect(screen.getByText(/entity name/i)).toBeInTheDocument();
     expect(screen.getByText(/registered agent/i)).toBeInTheDocument();
@@ -258,13 +259,13 @@ describe('ReviewForm', () => {
   });
 
   it('renders officer fields', () => {
-    render(<ReviewForm data={mockData} onSubmit={vi.fn()} />);
+    render(<ReviewForm data={mockData} onSubmit={jest.fn()} />);
     
     expect(screen.getByText(/president/i)).toBeInTheDocument();
   });
 
   it('disables submit button when red fields are unresolved', () => {
-    render(<ReviewForm data={mockData} onSubmit={vi.fn()} />);
+    render(<ReviewForm data={mockData} onSubmit={jest.fn()} />);
     
     const submitButton = screen.getByRole('button', { name: /submit/i });
     expect(submitButton).toBeDisabled();
@@ -282,26 +283,26 @@ describe('ReviewForm', () => {
         },
       ],
     });
-    render(<ReviewForm data={resolvedData} onSubmit={vi.fn()} />);
+    render(<ReviewForm data={resolvedData} onSubmit={jest.fn()} />);
     
     const submitButton = screen.getByRole('button', { name: /submit/i });
     expect(submitButton).not.toBeDisabled();
   });
 
   it('shows count of unresolved red fields', () => {
-    render(<ReviewForm data={mockData} onSubmit={vi.fn()} />);
+    render(<ReviewForm data={mockData} onSubmit={jest.fn()} />);
     
     expect(screen.getByText(/2 field\(s\) require attention/i)).toBeInTheDocument();
   });
 
   it('shows reconciliation diff panel', () => {
-    render(<ReviewForm data={mockData} onSubmit={vi.fn()} />);
+    render(<ReviewForm data={mockData} onSubmit={jest.fn()} />);
     
     expect(screen.getByTestId('reconciliation-panel')).toBeInTheDocument();
   });
 
   it('calls onSubmit when form is submitted', async () => {
-    const onSubmit = vi.fn();
+    const onSubmit = jest.fn();
     const resolvedData = mockReviewData({
       mailing_address: mockField({ confidence: 0.70, resolved: true }),
       officers: [

@@ -33,11 +33,10 @@ global.testUtils = {
   isWithinFilingWindow(date) {
     const month = date.getMonth() + 1;
     const day = date.getDate();
-    
-    if (month < this.FILING_WINDOW.START_MONTH) return false;
-    if (month > this.FILING_WINDOW.END_MONTH) return false;
-    if (month === this.FILING_WINDOW.END_MONTH && day > this.FILING_WINDOW.END_DAY) return false;
-    
+    const FILING_WINDOW = global.testUtils.FILING_WINDOW;
+    if (month < FILING_WINDOW.START_MONTH) return false;
+    if (month > FILING_WINDOW.END_MONTH) return false;
+    if (month === FILING_WINDOW.END_MONTH && day > FILING_WINDOW.END_DAY) return false;
     return true;
   },
 

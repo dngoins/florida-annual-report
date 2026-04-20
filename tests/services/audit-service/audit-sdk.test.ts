@@ -7,7 +7,7 @@
  * @module tests/services/audit-service/audit-sdk.test
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { AuditSdk, createAuditSdk } from '../../../src/services/audit-service/audit-sdk';
 import { AuditService, InMemoryAuditRepository } from '../../../src/services/audit-service';
 
