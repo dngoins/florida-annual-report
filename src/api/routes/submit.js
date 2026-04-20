@@ -4,14 +4,20 @@
  * Triggers the Playwright automation agent to submit annual report.
  * POST /submit - Submit annual report to Sunbiz
  * 
- * CRITICAL: This route enforces the human-in-the-loop requirement.
- * Submissions are BLOCKED without explicit user_approved: true
+ * CRITICAL: This route enforces:
+ * 1. Human-in-the-loop requirement (user_approved: true)
+ * 2. Filing deadline enforcement (blocked after May 1)
  * 
  * @module routes/submit
  */
 
 const express = require('express');
 const router = express.Router();
+const { createDeadlineEnforcer } = require('../middleware/deadlineCheck');
+
+// Create deadline enforcer middleware
+// Can be overridden for testing by setting req.dateOverride
+const deadlineEnforcer = createDeadlineEnforcer();
 
 /**
  * POST /submit
@@ -21,9 +27,12 @@ const router = express.Router();
  * Request: { company_id: string, filing_id: string, user_approved: true }
  * Response: { submission_id: string, status: "in_progress" }
  * 
+ * BLOCKS with 422 if:
+ * - Current date is past May 1 (filing deadline)
+ * 
  * REQUIRES user_approved: true - submission is blocked without explicit user approval.
  */
-router.post('/', async (req, res, next) => {
+router.post('/', deadlineEnforcer, async (req, res, next) => {
   try {
     const { company_id, filing_id, user_approved } = req.body;
     
