@@ -9,9 +9,14 @@
 const errorHandler = require('./errorHandler');
 const requestLogger = require('./requestLogger');
 const responseEnvelope = require('./responseEnvelope');
+const deadlineCheck = require('./deadlineCheck');
 
 module.exports = {
   errorHandler,
   requestLogger,
-  responseEnvelope
+  responseEnvelope,
+  deadlineCheck,
+  // Also export individual deadline functions for convenience
+  enforceDeadline: deadlineCheck.enforceDeadline,
+  createDeadlineEnforcer: deadlineCheck.createDeadlineEnforcer
 };
