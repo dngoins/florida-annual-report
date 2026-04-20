@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sunbiz Annual Report - Mock Filing Page</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: Arial, sans-serif; 
+      max-width: 800px; 
+      margin: 0 auto; 
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .header { 
+      background: #003366; 
+      color: white; 
+      padding: 15px; 
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .step { 
+      display: none; 
+      background: white; 
+      padding: 20px; 
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .step.active { display: block; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { 
+      display: block; 
+      font-weight: bold; 
+      margin-bottom: 5px;
+    }
+    .form-group input, .form-group select { 
+      width: 100%; 
+      padding: 8px; 
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: 2px solid #003366;
+      border-color: #003366;
+    }
+    button { 
+      background: #003366; 
+      color: white; 
+      padding: 10px 20px; 
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+    button:hover { background: #004488; }
+    button.secondary { 
+      background: #666; 
+    }
+    .section-title { 
+      font-size: 18px; 
+      font-weight: bold; 
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #003366;
+    }
+    .address-section { 
+      background: #f9f9f9; 
+      padding: 15px; 
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .officer-row { 
+      background: #f9f9f9; 
+      padding: 10px; 
+      margin-bottom: 10px;
+      border-radius: 4px;
+    }
+    .review-item { 
+      padding: 10px; 
+      border-bottom: 1px solid #eee;
+    }
+    .review-label { 
+      font-weight: bold; 
+      color: #666;
+    }
+    .captcha-container { 
+      background: #f0f0f0; 
+      padding: 20px; 
+      border: 2px dashed #999;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .payment-container { 
+      background: #fff8e1; 
+      padding: 20px; 
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .payment-container [data-section="payment"] { display: block; }
+    .confirmation-box { 
+      background: #e8f5e9; 
+      padding: 20px; 
+      border: 1px solid #4caf50;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .confirmation-number { 
+      font-size: 24px; 
+      font-weight: bold; 
+      color: #2e7d32;
+    }
+    .validation-error { 
+      color: #d32f2f; 
+      font-size: 12px; 
+      margin-top: 5px;
+      display: none;
+    }
+    .validation-error.show { display: block; }
+    [role="alert"] { 
+      background: #ffebee; 
+      color: #c62828; 
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      display: none;
+    }
+    [role="alert"].show { display: block; }
+    .entity-info { 
+      background: #e3f2fd; 
+      padding: 15px; 
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .entity-name { 
+      font-size: 20px; 
+      font-weight: bold; 
+      color: #1565c0;
+    }
+    .search-results {
+      display: none;
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+    .search-results.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Florida Division of Corporations</h1>
+    <h2>Annual Report Filing (Mock)</h2>
+  </div>
+
+  <!-- Step 1: Document Number Search -->
+  <div id="step1" class="step active" data-step="filing-start">
+    <div class="section-title">Step 1: Entity Search</div>
+    
+    <div role="alert" id="searchError">Please enter a valid document number.</div>
+    
+    <div class="form-group">
+      <label for="DocumentNumber">Document Number</label>
+      <input 
+        type="text" 
+        id="DocumentNumber" 
+        name="DocumentNumber"
+        aria-label="Document Number"
+        placeholder="e.g., P12345678"
+        pattern="[A-Z][0-9]+"
+      >
+      <div class="validation-error" id="docNumError">Document number must start with a letter followed by numbers.</div>
+    </div>
+    
+    <button type="button" id="searchButton" onclick="searchEntity()">Continue</button>
+    
+    <div id="searchResults" class="search-results">
+      <div class="entity-info">
+        <div class="entity-name" id="entityName">TEST CORPORATION INC.</div>
+        <div>Document Number: <span id="displayDocNum">P12345678</span></div>
+        <div>Status: ACTIVE</div>
+        <div>Filing Year: 2026</div>
+      </div>
+      <button type="button" onclick="goToStep(2)">Continue to Filing</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Entity Form - Addresses -->
+  <div id="step2" class="step" data-step="entity-form">
+    <div class="section-title">Step 2: Entity Information</div>
+    
+    <div class="entity-info">
+      <div class="entity-name">TEST CORPORATION INC.</div>
+      <div>Document Number: P12345678</div>
+    </div>
+
+    <!-- Principal Address -->
+    <div class="address-section">
+      <h3>Principal Address</h3>
+      <div class="form-group">
+        <label for="PrincipalStreet">Street Address</label>
+        <input 
+          type="text" 
+          id="PrincipalStreet" 
+          name="principalStreet"
+          aria-label="Principal Street Address"
+        >
+      </div>
+      <div class="form-group">
+        <label for="PrincipalCity">City</label>
+        <input 
+          type="text" 
+          id="PrincipalCity" 
+          name="principalCity"
+          aria-label="Principal City"
+        >
+      </div>
+      <div class="form-group">
+        <label for="PrincipalState">State</label>
+        <select 
+          id="PrincipalState" 
+          name="principalState"
+          aria-label="Principal State"
+        >
+          <option value="">Select State</option>
+          <option value="FL">Florida</option>
+          <option value="GA">Georgia</option>
+          <option value="AL">Alabama</option>
+          <option value="CA">California</option>
+          <option value="NY">New York</option>
+          <option value="TX">Texas</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="PrincipalZip">Zip Code</label>
+        <input 
+          type="text" 
+          id="PrincipalZip" 
+          name="principalZip"
+          aria-label="Principal Zip"
+          pattern="[0-9]{5}(-[0-9]{4})?"
+        >
+      </div>
+    </div>
+
+    <!-- Mailing Address -->
+    <div class="address-section">
+      <h3>Mailing Address</h3>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="sameAsAbove" onchange="copyPrincipalToMailing()">
+          Same as Principal Address
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="MailingStreet">Street Address</label>
+        <input 
+          type="text" 
+          id="MailingStreet" 
+          name="mailingStreet"
+          aria-label="Mailing Street Address"
+        >
+      </div>
+      <div class="form-group">
+        <label for="MailingCity">City</label>
+        <input 
+          type="text" 
+          id="MailingCity" 
+          name="mailingCity"
+          aria-label="Mailing City"
+        >
+      </div>
+      <div class="form-group">
+        <label for="MailingState">State</label>
+        <select 
+          id="MailingState" 
+          name="mailingState"
+          aria-label="Mailing State"
+        >
+          <option value="">Select State</option>
+          <option value="FL">Florida</option>
+          <option value="GA">Georgia</option>
+          <option value="AL">Alabama</option>
+          <option value="CA">California</option>
+          <option value="NY">New York</option>
+          <option value="TX">Texas</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="MailingZip">Zip Code</label>
+        <input 
+          type="text" 
+          id="MailingZip" 
+          name="mailingZip"
+          aria-label="Mailing Zip"
+          pattern="[0-9]{5}(-[0-9]{4})?"
+        >
+      </div>
+    </div>
+
+    <button type="button" class="secondary" onclick="goToStep(1)">Back</button>
+    <button type="button" onclick="goToStep(3)">Continue</button>
+  </div>
+
+  <!-- Step 3: Registered Agent -->
+  <div id="step3" class="step" data-step="registered-agent">
+    <div class="section-title">Step 3: Registered Agent</div>
+    
+    <div class="address-section">
+      <div class="form-group">
+        <label for="AgentName">Registered Agent Name</label>
+        <input 
+          type="text" 
+          id="AgentName" 
+          name="agentName"
+          aria-label="Registered Agent Name"
+        >
+      </div>
+      <div class="form-group">
+        <label for="AgentStreet">Street Address</label>
+        <input 
+          type="text" 
+          id="AgentStreet" 
+          name="agentStreet"
+          aria-label="Agent Street Address"
+        >
+      </div>
+      <div class="form-group">
+        <label for="AgentCity">City</label>
+        <input 
+          type="text" 
+          id="AgentCity" 
+          name="agentCity"
+          aria-label="Agent City"
+        >
+      </div>
+      <div class="form-group">
+        <label for="AgentState">State</label>
+        <select 
+          id="AgentState" 
+          name="agentState"
+          aria-label="Agent State"
+        >
+          <option value="">Select State</option>
+          <option value="FL">Florida</option>
+          <option value="GA">Georgia</option>
+          <option value="AL">Alabama</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="AgentZip">Zip Code</label>
+        <input 
+          type="text" 
+          id="AgentZip" 
+          name="agentZip"
+          aria-label="Agent Zip"
+          pattern="[0-9]{5}(-[0-9]{4})?"
+        >
+      </div>
+    </div>
+
+    <button type="button" class="secondary" onclick="goToStep(2)">Back</button>
+    <button type="button" onclick="goToStep(4)">Continue</button>
+  </div>
+
+  <!-- Step 4: Officers -->
+  <div id="step4" class="step" data-step="officers">
+    <div class="section-title">Step 4: Officers / Directors</div>
+    
+    <div data-section="officers" id="officersContainer">
+      <div class="officer-row" data-officer-index="0">
+        <div class="form-group">
+          <label>Title</label>
+          <select 
+            name="officers[0].title"
+            aria-label="Officer Title"
+          >
+            <option value="">Select Title</option>
+            <option value="CEO">CEO</option>
+            <option value="President">President</option>
+            <option value="Vice President">Vice President</option>
+            <option value="Secretary">Secretary</option>
+            <option value="Treasurer">Treasurer</option>
+            <option value="Director">Director</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input 
+            type="text" 
+            name="officers[0].name"
+            aria-label="Officer Name"
+          >
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input 
+            type="text" 
+            name="officers[0].address"
+            aria-label="Officer Address"
+          >
+        </div>
+      </div>
+    </div>
+    
+    <button type="button" class="secondary" onclick="addOfficer()">Add Officer</button>
+    
+    <div style="margin-top: 20px;">
+      <button type="button" class="secondary" onclick="goToStep(3)">Back</button>
+      <button type="button" onclick="goToStep(5)">Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 5: Review -->
+  <div id="step5" class="step" data-step="review">
+    <div class="section-title">Step 5: Review Your Information</div>
+    
+    <div class="review-item">
+      <div class="review-label">Entity Name</div>
+      <div>TEST CORPORATION INC.</div>
+      <button type="button" class="secondary" onclick="goToStep(1)">Edit</button>
+    </div>
+    
+    <div class="review-item">
+      <div class="review-label">Principal Address</div>
+      <div id="reviewPrincipalAddress">-</div>
+      <button type="button" class="secondary" onclick="goToStep(2)">Edit</button>
+    </div>
+    
+    <div class="review-item">
+      <div class="review-label">Mailing Address</div>
+      <div id="reviewMailingAddress">-</div>
+      <button type="button" class="secondary" onclick="goToStep(2)">Edit</button>
+    </div>
+    
+    <div class="review-item">
+      <div class="review-label">Registered Agent</div>
+      <div id="reviewAgent">-</div>
+      <button type="button" class="secondary" onclick="goToStep(3)">Edit</button>
+    </div>
+    
+    <div class="review-item">
+      <div class="review-label">Officers</div>
+      <div id="reviewOfficers">-</div>
+      <button type="button" class="secondary" onclick="goToStep(4)">Edit</button>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <button type="button" class="secondary" onclick="goToStep(4)">Back</button>
+      <button type="button" onclick="goToStep(6)">Continue to Signature</button>
+    </div>
+  </div>
+
+  <!-- Step 6: Signature + CAPTCHA -->
+  <div id="step6" class="step" data-step="signature">
+    <div class="section-title">Step 6: Signature & Verification</div>
+    
+    <div class="form-group">
+      <label for="Signature">Electronic Signature</label>
+      <input 
+        type="text" 
+        id="Signature" 
+        name="signature"
+        aria-label="Electronic Signature"
+        placeholder="Type your full legal name"
+      >
+    </div>
+    
+    <div class="form-group">
+      <label>
+        <input 
+          type="checkbox" 
+          id="certifyCheckbox"
+          name="certify"
+          aria-label="I certify that the information provided is true and correct"
+        >
+        I certify that the information provided is true and correct to the best of my knowledge.
+      </label>
+    </div>
+    
+    <!-- CAPTCHA Mock -->
+    <div class="captcha-container" id="captchaSection">
+      <div class="g-recaptcha" data-sitekey="mock-key">
+        <iframe src="about:blank" title="reCAPTCHA" id="captchaFrame" class="captcha"></iframe>
+      </div>
+      <p><strong>CAPTCHA Verification Required</strong></p>
+      <p>Please complete the CAPTCHA to proceed.</p>
+      <button type="button" onclick="solveCaptcha()">Simulate CAPTCHA Solve</button>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <button type="button" class="secondary" onclick="goToStep(5)">Back</button>
+      <button type="button" id="submitButton" onclick="goToStep(7)" disabled>Submit</button>
+    </div>
+  </div>
+
+  <!-- Step 7: Payment -->
+  <div id="step7" class="step" data-step="payment">
+    <div class="section-title">Step 7: Payment</div>
+    
+    <div class="payment-container" data-section="payment">
+      <h3>Filing Fee: $138.75</h3>
+      <p>Annual Report Filing Fee: $138.75</p>
+      
+      <div class="form-group">
+        <label for="cardNumber">Credit Card Number</label>
+        <input 
+          type="text" 
+          id="cardNumber" 
+          name="cardNumber"
+          aria-label="Card Number"
+          placeholder="1234 5678 9012 3456"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="cardExpiry">Expiration Date</label>
+        <input 
+          type="text" 
+          id="cardExpiry" 
+          name="cardExpiry"
+          aria-label="Credit Card Expiration"
+          placeholder="MM/YY"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="cardCVV">CVV</label>
+        <input 
+          type="text" 
+          id="cardCVV" 
+          name="cardCVV"
+          aria-label="Credit Card CVV"
+          placeholder="123"
+          maxlength="4"
+        >
+      </div>
+      
+      <p><em>Note: Automation pauses here. User must complete payment manually.</em></p>
+      
+      <button type="button" onclick="processPayment()">Pay $138.75</button>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <button type="button" class="secondary" onclick="goToStep(6)">Back</button>
+    </div>
+  </div>
+
+  <!-- Step 8: Confirmation -->
+  <div id="step8" class="step" data-step="confirmation">
+    <div class="section-title">Filing Complete</div>
+    
+    <div class="confirmation-box">
+      <p>Your Annual Report has been successfully filed!</p>
+      <p>Confirmation Number:</p>
+      <div class="confirmation-number" data-field="confirmation-number" id="confirmationNumber">
+        AR2026-123456789
+      </div>
+      <p style="margin-top: 20px;">
+        <a href="#" onclick="alert('Receipt download simulated')">Download Receipt</a>
+      </p>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center;">
+      <p>A copy of this confirmation has been sent to your email.</p>
+      <button type="button" onclick="location.reload()">File Another Report</button>
+    </div>
+  </div>
+
+  <script>
+    // Global state
+    let currentStep = 1;
+    let captchaSolved = false;
+    let officerCount = 1;
+    
+    // Step navigation
+    function goToStep(step) {
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      document.getElementById('step' + step).classList.add('active');
+      currentStep = step;
+      
+      // Update review page when entering step 5
+      if (step === 5) {
+        updateReview();
+      }
+      
+      // Dispatch navigation event for testing
+      window.dispatchEvent(new CustomEvent('sunbiz:navigation', {
+        detail: { step: step, stepName: getStepName(step) }
+      }));
+    }
+    
+    function getStepName(step) {
+      const names = {
+        1: 'filing-start',
+        2: 'entity-form',
+        3: 'registered-agent',
+        4: 'officers',
+        5: 'review',
+        6: 'signature',
+        7: 'payment',
+        8: 'confirmation'
+      };
+      return names[step] || 'unknown';
+    }
+    
+    // Entity search
+    function searchEntity() {
+      const docNum = document.getElementById('DocumentNumber').value;
+      
+      if (!docNum || !/^[A-Z][0-9]+$/.test(docNum)) {
+        document.getElementById('searchError').classList.add('show');
+        document.getElementById('docNumError').classList.add('show');
+        return;
+      }
+      
+      document.getElementById('searchError').classList.remove('show');
+      document.getElementById('docNumError').classList.remove('show');
+      
+      // Simulate search results
+      document.getElementById('displayDocNum').textContent = docNum;
+      document.getElementById('searchResults').classList.add('show');
+      
+      // Dispatch search event for testing
+      window.dispatchEvent(new CustomEvent('sunbiz:entityFound', {
+        detail: { 
+          documentNumber: docNum,
+          entityName: 'TEST CORPORATION INC.',
+          status: 'ACTIVE'
+        }
+      }));
+    }
+    
+    // Copy principal address to mailing
+    function copyPrincipalToMailing() {
+      if (document.getElementById('sameAsAbove').checked) {
+        document.getElementById('MailingStreet').value = document.getElementById('PrincipalStreet').value;
+        document.getElementById('MailingCity').value = document.getElementById('PrincipalCity').value;
+        document.getElementById('MailingState').value = document.getElementById('PrincipalState').value;
+        document.getElementById('MailingZip').value = document.getElementById('PrincipalZip').value;
+      }
+    }
+    
+    // Add officer row
+    function addOfficer() {
+      const container = document.getElementById('officersContainer');
+      const newRow = document.createElement('div');
+      newRow.className = 'officer-row';
+      newRow.dataset.officerIndex = officerCount;
+      newRow.innerHTML = `
+        <div class="form-group">
+          <label>Title</label>
+          <select name="officers[${officerCount}].title" aria-label="Officer Title">
+            <option value="">Select Title</option>
+            <option value="CEO">CEO</option>
+            <option value="President">President</option>
+            <option value="Vice President">Vice President</option>
+            <option value="Secretary">Secretary</option>
+            <option value="Treasurer">Treasurer</option>
+            <option value="Director">Director</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" name="officers[${officerCount}].name" aria-label="Officer Name">
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" name="officers[${officerCount}].address" aria-label="Officer Address">
+        </div>
+        <button type="button" class="secondary" onclick="this.parentElement.remove()">Remove</button>
+      `;
+      container.appendChild(newRow);
+      officerCount++;
+    }
+    
+    // Update review page
+    function updateReview() {
+      const principal = [
+        document.getElementById('PrincipalStreet').value,
+        document.getElementById('PrincipalCity').value,
+        document.getElementById('PrincipalState').value,
+        document.getElementById('PrincipalZip').value
+      ].filter(v => v).join(', ');
+      
+      const mailing = [
+        document.getElementById('MailingStreet').value,
+        document.getElementById('MailingCity').value,
+        document.getElementById('MailingState').value,
+        document.getElementById('MailingZip').value
+      ].filter(v => v).join(', ');
+      
+      const agent = [
+        document.getElementById('AgentName').value,
+        document.getElementById('AgentStreet').value,
+        document.getElementById('AgentCity').value,
+        document.getElementById('AgentState').value,
+        document.getElementById('AgentZip').value
+      ].filter(v => v).join(', ');
+      
+      document.getElementById('reviewPrincipalAddress').textContent = principal || '-';
+      document.getElementById('reviewMailingAddress').textContent = mailing || '-';
+      document.getElementById('reviewAgent').textContent = agent || '-';
+      
+      // Officers
+      const officers = [];
+      document.querySelectorAll('.officer-row').forEach(row => {
+        const title = row.querySelector('[name*="title"]').value;
+        const name = row.querySelector('[name*="name"]').value;
+        if (name) {
+          officers.push(`${title || 'Officer'}: ${name}`);
+        }
+      });
+      document.getElementById('reviewOfficers').textContent = officers.join('; ') || '-';
+    }
+    
+    // CAPTCHA handling
+    function solveCaptcha() {
+      captchaSolved = true;
+      document.getElementById('submitButton').disabled = false;
+      document.getElementById('captchaSection').innerHTML = 
+        '<p style="color: green; font-weight: bold;">✓ CAPTCHA Verified</p>';
+      
+      // Dispatch CAPTCHA pause event for testing
+      window.dispatchEvent(new CustomEvent('sunbiz:captchaPause', {
+        detail: { 
+          type: 'recaptcha',
+          requiresHumanIntervention: true,
+          step: 6
+        }
+      }));
+    }
+    
+    // Detect CAPTCHA for automation
+    function detectCaptcha() {
+      const indicators = [
+        'iframe[src*="recaptcha"]',
+        'iframe[src*="hcaptcha"]',
+        '[class*="captcha"]',
+        '[id*="captcha"]',
+        '.g-recaptcha'
+      ];
+      
+      for (const selector of indicators) {
+        if (document.querySelector(selector)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    // Payment handling
+    function processPayment() {
+      // Dispatch payment pause event for testing
+      window.dispatchEvent(new CustomEvent('sunbiz:paymentPause', {
+        detail: { 
+          amount: 138.75,
+          currency: 'USD',
+          requiresHumanIntervention: true,
+          step: 7
+        }
+      }));
+      
+      // Simulate successful payment
+      setTimeout(() => {
+        // Generate random confirmation number
+        const confNum = 'AR2026-' + Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
+        document.getElementById('confirmationNumber').textContent = confNum;
+        goToStep(8);
+        
+        // Dispatch completion event
+        window.dispatchEvent(new CustomEvent('sunbiz:filingComplete', {
+          detail: { 
+            confirmationNumber: confNum,
+            timestamp: new Date().toISOString()
+          }
+        }));
+      }, 1000);
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check for CAPTCHA on signature page
+      const captchaPresent = detectCaptcha();
+      
+      // Expose state for testing
+      window.sunbizMock = {
+        getCurrentStep: () => currentStep,
+        getCaptchaSolved: () => captchaSolved,
+        detectCaptcha: detectCaptcha,
+        goToStep: goToStep
+      };
+    });
+  </script>
+</body>
+</html>
