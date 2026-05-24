@@ -36,12 +36,14 @@ function getFilingWindowStart(year) {
  * Check if a date is past the filing deadline.
  * 
  * @param {Date} [date] - The date to check (defaults to now)
- * @param {number} [year] - The filing year (defaults to current year)
+ * @param {number} [year] - The filing year (defaults to the year of the passed date, or current year)
  * @returns {boolean} - True if past deadline
  */
 function isPastDeadline(date, year) {
   const checkDate = date || new Date();
-  const deadline = getFilingDeadline(year);
+  // If no explicit year provided, derive from the check date
+  const targetYear = year || checkDate.getFullYear();
+  const deadline = getFilingDeadline(targetYear);
   return checkDate >= deadline;
 }
 
@@ -49,7 +51,7 @@ function isPastDeadline(date, year) {
  * Check if currently within the filing window (Jan 1 - May 1).
  * 
  * @param {Date} [date] - The date to check (defaults to now)
- * @param {number} [year] - The filing year (defaults to current year)
+ * @param {number} [year] - The filing year (defaults to the year of the passed date, or current year)
  * @returns {boolean} - True if within filing window
  */
 function isWithinFilingWindow(date, year) {
@@ -65,12 +67,14 @@ function isWithinFilingWindow(date, year) {
  * Get the number of days remaining until the filing deadline.
  * 
  * @param {Date} [date] - The date to check from (defaults to now)
- * @param {number} [year] - The filing year (defaults to current year)
+ * @param {number} [year] - The filing year (defaults to the year of the passed date, or current year)
  * @returns {number} - Days remaining (negative if past deadline)
  */
 function getDaysUntilDeadline(date, year) {
   const checkDate = date || new Date();
-  const deadline = getFilingDeadline(year);
+  // If no explicit year provided, derive from the check date
+  const targetYear = year || checkDate.getFullYear();
+  const deadline = getFilingDeadline(targetYear);
   const diffMs = deadline - checkDate;
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   return diffDays;
@@ -81,7 +85,7 @@ function getDaysUntilDeadline(date, year) {
  * Warning is shown when < 30 days remain before May 1.
  * 
  * @param {Date} [date] - The date to check (defaults to now)
- * @param {number} [year] - The filing year (defaults to current year)
+ * @param {number} [year] - The filing year (defaults to the year of the passed date, or current year)
  * @param {number} [warningThresholdDays=30] - Days before deadline to start warning
  * @returns {boolean} - True if warning should be shown
  */
@@ -95,7 +99,7 @@ function shouldShowDeadlineWarning(date, year, warningThresholdDays = 30) {
  * Get deadline status info for API responses.
  * 
  * @param {Date} [date] - The date to check (defaults to now)
- * @param {number} [year] - The filing year (defaults to current year)
+ * @param {number} [year] - The filing year (defaults to the year of the passed date, or current year)
  * @returns {Object} - Status object with deadline info
  */
 function getDeadlineStatus(date, year) {
