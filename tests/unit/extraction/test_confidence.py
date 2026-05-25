@@ -459,7 +459,13 @@ class TestConfidenceMerging:
         # LLM: some above threshold
         mock_llm = MagicMock()
         mock_llm.extract.return_value = (
-            ExtractedFields(entity_name="LLM LLC"),
+            ExtractedFields(
+                entity_name="LLM LLC",
+                registered_agent_name="LLM Agent",
+                principal_address="LLM Principal Address",
+                mailing_address="LLM Mailing Address",
+                officers=[],
+            ),
             {"entity_name": 0.85, "registered_agent_name": 0.80, "principal_address": 0.65, "mailing_address": 0.60, "officers": 0.78}
         )
         pipeline._llm = mock_llm

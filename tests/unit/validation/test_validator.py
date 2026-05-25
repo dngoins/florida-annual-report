@@ -127,8 +127,8 @@ class TestWeightedScoringFormula:
         }
         
         expected = (0.4 * 0.90) + (0.4 * 0.80) + (0.2 * 0.70)
-        assert expected == 0.36 + 0.32 + 0.14
-        assert expected == 0.82
+        assert expected == pytest.approx(0.36 + 0.32 + 0.14)
+        assert expected == pytest.approx(0.82)
 
     def test_weights_sum_to_one(self):
         """Test that weights sum to 1.0."""

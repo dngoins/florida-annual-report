@@ -378,12 +378,12 @@ class TestOCRExtraction:
     def mock_textract(self):
         """Create OCR extractor with mocked Textract client."""
         ocr = TextractOCR()
-        ocr._client = MagicMock()
+        ocr.client = MagicMock()
         return ocr
 
     def test_textract_high_confidence_response(self, mock_textract):
         """Test processing high confidence Textract response."""
-        mock_textract._client.detect_document_text.return_value = TEXTRACT_HIGH_CONFIDENCE_RESPONSE
+        mock_textract.client.detect_document_text.return_value = TEXTRACT_HIGH_CONFIDENCE_RESPONSE
         
         text, confidence = mock_textract.extract_text(b"fake_pdf_bytes")
         
@@ -392,7 +392,7 @@ class TestOCRExtraction:
 
     def test_textract_low_confidence_response(self, mock_textract):
         """Test processing low confidence Textract response."""
-        mock_textract._client.detect_document_text.return_value = TEXTRACT_LOW_CONFIDENCE_RESPONSE
+        mock_textract.client.detect_document_text.return_value = TEXTRACT_LOW_CONFIDENCE_RESPONSE
         
         text, confidence = mock_textract.extract_text(b"fake_pdf_bytes")
         
@@ -401,7 +401,7 @@ class TestOCRExtraction:
 
     def test_textract_empty_response(self, mock_textract):
         """Test handling empty Textract response."""
-        mock_textract._client.detect_document_text.return_value = {
+        mock_textract.client.detect_document_text.return_value = {
             "DocumentMetadata": {"Pages": 0},
             "Blocks": []
         }

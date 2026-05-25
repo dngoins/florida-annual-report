@@ -86,7 +86,8 @@ class SpacyNER:
             r"\s*Name[:\s]+([A-Z][A-Za-z0-9\s&,.'()-]+"
             r"(?:LLC|Inc\.?|Corp\.?|Ltd\.?)?)",
             r"(?:Name of|Named)\s+([A-Z][A-Za-z0-9\s&,.'()-]+(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
-            r"ARTICLES OF (?:INCORPORATION|ORGANIZATION) (?:OF|FOR)\s+([A-Z][A-Za-z0-9\s&,.'()-]+)",
+            r"ARTICLES OF (?:INCORPORATION|ORGANIZATION)\s+(?:OF|FOR)\s+([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
+            r"(?:company|entity|LLC|corporation) is[:\s]+([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
         ]
 
         for pattern in patterns:
@@ -109,9 +110,9 @@ class SpacyNER:
     def _extract_registered_agent(self, text: str, doc) -> tuple[Optional[str], float]:
         """Extract registered agent name."""
         patterns = [
-            r"Registered Agent[:\s]+([A-Z][A-Za-z\s,.'()-]+?)(?:\n|Address|$)",
-            r"Agent Name[:\s]+([A-Z][A-Za-z\s,.'()-]+?)(?:\n|$)",
-            r"The registered agent (?:is|shall be)[:\s]+([A-Z][A-Za-z\s,.'()-]+?)(?:\n|,|$)",
+            r"Registered Agent\s*[:\-]\s*([A-Z][A-Za-z\s,.'()-]+?)(?:\n|Address|$)",
+            r"Agent Name\s*[:\-]\s*([A-Z][A-Za-z\s,.'()-]+?)(?:\n|$)",
+            r"The registered agent (?:is|shall be)\s*[:\-]?\s*([A-Z][A-Za-z\s,.'()-]+?)(?:\n|,|$)",
         ]
 
         for pattern in patterns:

@@ -25,7 +25,7 @@ Return a JSON object with these fields:
 - registered_agent_name: Name of the registered agent
 - principal_address: Principal business address
 - mailing_address: Mailing address (if different from principal)
-- officers: Array of objects with {name, title, address} for each officer/director
+- officers: Array of objects with {{name, title, address}} for each officer/director
 
 If a field cannot be found, use null.
 
