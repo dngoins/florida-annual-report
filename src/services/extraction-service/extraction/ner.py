@@ -86,8 +86,10 @@ class SpacyNER:
             r"\s*Name[:\s]+([A-Z][A-Za-z0-9\s&,.'()-]+"
             r"(?:LLC|Inc\.?|Corp\.?|Ltd\.?)?)",
             r"(?:Name of|Named)\s+([A-Z][A-Za-z0-9\s&,.'()-]+(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
-            r"ARTICLES OF (?:INCORPORATION|ORGANIZATION)\s+(?:OF|FOR)\s+([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
-            r"(?:company|entity|LLC|corporation) is[:\s]+([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
+            r"ARTICLES OF (?:INCORPORATION|ORGANIZATION)\s+(?:OF|FOR)\s+"
+            r"([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
+            r"(?:company|entity|LLC|corporation) is[:\s]+"
+            r"([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
         ]
 
         for pattern in patterns:
