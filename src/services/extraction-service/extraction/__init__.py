@@ -1,4 +1,4 @@
-"""
+﻿"""
 Extraction Service Package
 
 Provides OCR, NER, and LLM-based document extraction for Florida Annual Reports.
@@ -15,7 +15,7 @@ from extraction.pipeline import ExtractionPipeline
 
 __all__ = [
     "ExtractionRequest",
-    "ExtractionResponse", 
+    "ExtractionResponse",
     "ExtractedFields",
     "ConfidenceScores",
     "Officer",

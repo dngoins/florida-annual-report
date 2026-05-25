@@ -1,4 +1,4 @@
-"""
+﻿"""
 Florida Annual Report - Extraction Service
 
 FastAPI application providing OCR, NER, and LLM-based document extraction.
@@ -17,15 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add extraction module to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from extraction.models import (
+from extraction.models import (  # noqa: E402
     ExtractionRequest,
     ExtractionResponse,
-    ExtractedFields,
-    ConfidenceScores,
-    NeedsReviewFlags,
     HealthResponse,
 )
-from extraction.pipeline import ExtractionPipeline, ExtractionError
+from extraction.pipeline import ExtractionPipeline, ExtractionError  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -80,12 +77,12 @@ async def upload_document(
 ):
     """
     Upload a document for processing.
-    
+
     Accepts PDF, DOCX, CSV, or Markdown files.
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
-    
+
     # Validate file type
     allowed_extensions = [".pdf", ".docx", ".csv", ".md", ".txt"]
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -94,15 +91,15 @@ async def upload_document(
             status_code=400,
             detail=f"Unsupported file type. Allowed: {allowed_extensions}",
         )
-    
+
     # Generate document ID if not provided
     if not document_id:
         import uuid
         document_id = str(uuid.uuid4())
-    
+
     # Read file content
     content = await file.read()
-    
+
     # Store document (in production, upload to Azure Blob)
     document_store[document_id] = {
         "id": document_id,
@@ -113,9 +110,9 @@ async def upload_document(
         "uploaded_at": datetime.utcnow().isoformat(),
         "status": "uploaded",
     }
-    
+
     logger.info(f"Document uploaded: {document_id} ({file.filename}, {len(content)} bytes)")
-    
+
     return {
         "status": "success",
         "document_id": document_id,
@@ -128,24 +125,24 @@ async def upload_document(
 async def extract_document(request: ExtractionRequest):
     """
     Trigger extraction on an uploaded document.
-    
+
     Runs the 3-stage pipeline:
     1. OCR (AWS Textract) for scanned PDFs
     2. NER (spaCy) for entity extraction
     3. LLM (Claude) fallback for low-confidence fields
     """
     document_id = request.document_id
-    
+
     # Retrieve document
     if document_id not in document_store:
         raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
-    
+
     doc = document_store[document_id]
     document_bytes = doc.get("bytes")
-    
+
     if not document_bytes:
         raise HTTPException(status_code=400, detail="Document content not available")
-    
+
     try:
         # Run extraction pipeline
         fields, confidence, needs_review, method = pipeline.extract(
@@ -153,13 +150,13 @@ async def extract_document(request: ExtractionRequest):
             use_ocr=True,
             use_llm_fallback=True,
         )
-        
+
         # Update document status
         doc["status"] = "extracted"
         doc["extracted_at"] = datetime.utcnow().isoformat()
-        
+
         logger.info(f"Extraction complete for {document_id}: method={method}")
-        
+
         return ExtractionResponse(
             status="success",
             document_id=document_id,
@@ -168,7 +165,7 @@ async def extract_document(request: ExtractionRequest):
             needs_review=needs_review,
             extraction_method=method,
         )
-        
+
     except ExtractionError as e:
         logger.error(f"Extraction failed for {document_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -184,7 +181,7 @@ async def extract_from_text(
 ):
     """
     Extract fields from pre-provided text (skips OCR).
-    
+
     Useful for testing or when text is already extracted.
     """
     try:
@@ -193,7 +190,7 @@ async def extract_from_text(
             use_ocr=False,
             use_llm_fallback=True,
         )
-        
+
         return ExtractionResponse(
             status="success",
             document_id=document_id,
@@ -202,7 +199,7 @@ async def extract_from_text(
             needs_review=needs_review,
             extraction_method=method,
         )
-        
+
     except ExtractionError as e:
         logger.error(f"Text extraction failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -213,16 +210,16 @@ async def get_document(document_id: str):
     """Get document metadata and extraction status."""
     if document_id not in document_store:
         raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
-    
+
     doc = document_store[document_id].copy()
     # Don't return raw bytes
     doc.pop("bytes", None)
-    
+
     return {"status": "success", "document": doc}
 
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
