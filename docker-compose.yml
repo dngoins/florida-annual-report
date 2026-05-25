@@ -33,14 +33,12 @@ services:
   extraction:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: florida-annual-report-backend:dev
+      dockerfile: Dockerfile.extraction
+    image: florida-annual-report-extraction:dev
     container_name: far-extraction
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--app-dir", "src/services/extraction-service"]
     ports:
       - "8001:8001"
     environment:
-      PYTHONPATH: /app/src/services/extraction-service
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}

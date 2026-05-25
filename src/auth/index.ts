@@ -1,15 +1,13 @@
 /**
  * Authentication Module - Public API
- * 
+ *
  * This module provides OAuth2 authentication, RBAC, and MFA
  * per CONSTITUTION.md Principle VII: Security by Default.
  */
 
 // Role-based access control
+export type { Role, Permission, RoleDefinition } from './roles';
 export {
-  Role,
-  Permission,
-  RoleDefinition,
   ROLES,
   hasPermission,
   requiresMFA,
@@ -19,9 +17,8 @@ export {
 } from './roles';
 
 // Authentication middleware
+export type { AuthenticatedUser, AuthMiddlewareOptions } from './middleware';
 export {
-  AuthenticatedUser,
-  AuthMiddlewareOptions,
   withAuth,
   adminOnly,
   preparerOrAbove,
@@ -34,11 +31,10 @@ export {
 } from './middleware';
 
 // MFA (TOTP)
+export type { MFASetup, MFAVerificationResult } from './mfa';
 export {
   TOTP_CONFIG,
   BACKUP_CODES_CONFIG,
-  MFASetup,
-  MFAVerificationResult,
   generateTOTPSecret,
   generateTOTP,
   verifyTOTP,
@@ -51,9 +47,8 @@ export {
 } from './mfa';
 
 // Audit logging
+export type { AuthEventType, AuthAuditEvent } from './audit';
 export {
-  AuthEventType,
-  AuthAuditEvent,
   logAuthEvent,
   logLoginSuccess,
   logLoginFailure,
@@ -67,21 +62,16 @@ export {
 } from './audit';
 
 // OAuth2 providers
+export type { ProviderProfile, SupportedProvider } from './providers';
 export {
-  ProviderProfile,
   getGoogleProvider,
   getMicrosoftProvider,
   getConfiguredProviders,
   SUPPORTED_PROVIDERS,
-  SupportedProvider,
   isSupportedProvider,
   getProviderDisplayName,
 } from './providers';
 
 // NextAuth configuration
-export {
-  JWT_CONFIG,
-  ExtendedSession,
-  ExtendedJWT,
-  authOptions,
-} from './config';
+export type { ExtendedSession, ExtendedJWT } from './config';
+export { JWT_CONFIG, authOptions } from './config';

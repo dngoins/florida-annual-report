@@ -40,8 +40,8 @@ RUN mkdir -p ./public && \
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build the application
-RUN npm run build 2>/dev/null || echo "Build step skipped - no Next.js config found"
+# Build the application (must succeed - no silent fallback)
+RUN npm run build
 
 # ==============================================================================
 # Stage 3: Production Runner
@@ -59,11 +59,12 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy built application (.next/standalone, .next/static are produced by Next.js build;
-# fall back gracefully if the build step was skipped)
-RUN mkdir -p ./public ./.next/static
+# Copy built application
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/src ./src
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Switch to non-root user
 USER nextjs
