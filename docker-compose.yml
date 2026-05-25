@@ -1,0 +1,82 @@
+# Local dev stack for florida-annual-report
+# Usage:
+#   docker compose up --build           # start everything in foreground
+#   docker compose up -d --build        # detached
+#   docker compose down -v              # stop + wipe volumes
+#
+# Services:
+#   frontend       Next.js UI on http://localhost:3000
+#   extraction     FastAPI extraction service on http://localhost:8001
+#   postgres       AzureSQL stand-in (Postgres 16) on localhost:5432
+#   azurite        Azure Blob/Queue/Table emulator on 10000/10001/10002
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: florida-annual-report-frontend:dev
+    container_name: far-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_EXTRACTION_API: http://localhost:8001
+      DATABASE_URL: postgresql://far:far@postgres:5432/far
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;}
+    depends_on:
+      - extraction
+      - postgres
+      - azurite
+    restart: unless-stopped
+
+  extraction:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: florida-annual-report-backend:dev
+    container_name: far-extraction
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--app-dir", "src/services/extraction-service"]
+    ports:
+      - "8001:8001"
+    environment:
+      PYTHONPATH: /app/src/services/extraction-service
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: far-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: far
+      POSTGRES_PASSWORD: far
+      POSTGRES_DB: far
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U far -d far"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: far-azurite
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --loose"
+    ports:
+      - "10000:10000"  # blob
+      - "10001:10001"  # queue
+      - "10002:10002"  # table
+    volumes:
+      - azurite-data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  azurite-data:

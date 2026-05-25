@@ -1,0 +1,43 @@
+###
+# Florida Annual Report - sample HTTP requests
+#
+# Compatible with VS Code REST Client extension and JetBrains HTTP client.
+# Run the dev stack first:  ./scripts/dev.ps1 -Detach
+###
+
+@host = http://localhost:8001
+
+### Health check
+GET {{host}}/health
+
+### Extract entities from raw text (skips OCR, uses NER + LLM fallback).
+# Uses the same sample as tests/services/extraction-service/fixtures/sample_articles.txt
+POST {{host}}/extract/text
+Content-Type: application/x-www-form-urlencoded
+
+document_id=demo-001&text=ARTICLES OF INCORPORATION%0AOF%0ASUNSHINE TECH SOLUTIONS LLC%0A%0AARTICLE I - NAME%0AThe name of this limited liability company is: SUNSHINE TECH SOLUTIONS LLC%0A%0AARTICLE II - PRINCIPAL ADDRESS%0APrincipal Business Address: 123 Palm Beach Boulevard, Suite 100, Miami, FL 33139%0A%0AMailing Address: P.O. Box 4567, Miami, FL 33140%0A%0AARTICLE III - REGISTERED AGENT%0AThe name and Florida street address of the registered agent is:%0ARegistered Agent: John Michael Smith%0AAgent Address: 456 Corporate Drive, Tampa, FL 33601%0A%0AARTICLE IV - MANAGEMENT AND OFFICERS%0APresident: Sarah Elizabeth Johnson%0AAddress: 789 Executive Way, Orlando, FL 32801%0AVice President: Michael Robert Chen%0AAddress: 321 Innovation Lane, Jacksonville, FL 32202%0ASecretary: Amanda Lynn Williams%0AAddress: 555 Business Park Circle, Fort Lauderdale, FL 33301
+
+### Extract from JSON payload (use when document is already in Blob Storage)
+POST {{host}}/extract
+Content-Type: application/json
+
+{
+  "document_id": "demo-002",
+  "document_url": "http://azurite:10000/devstoreaccount1/documents/sample.pdf",
+  "use_ocr": false,
+  "use_llm_fallback": true
+}
+
+### Upload a file (multipart) - replace <path> with a real PDF on your machine
+POST {{host}}/documents
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="file"; filename="sample.pdf"
+Content-Type: application/pdf
+
+< ./tests/services/extraction-service/fixtures/sample_articles.txt
+------boundary--
+
+### Look up uploaded document metadata
+GET {{host}}/documents/demo-001

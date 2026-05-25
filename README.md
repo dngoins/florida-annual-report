@@ -33,6 +33,40 @@ All submissions must occur via:
 - **Fail-safe automation** — never silent failure
 - **Compliance-first** design
 
+## Quick Start (local dev)
+
+Prereqs: Docker Desktop, Node.js 20+, Python 3.12+, PowerShell.
+
+```powershell
+# 1. Bring up the full stack (frontend + extraction API + Postgres + Azurite)
+./scripts/dev.ps1 -Detach
+
+# 2. Open the UI / API
+#    Frontend:    http://localhost:3000
+#    Extraction:  http://localhost:8001/docs   (Swagger UI)
+
+# 3. Smoke-test the extraction pipeline
+#    Open scripts/sample-requests.http (VS Code REST Client) and run the
+#    "Extract entities from raw text" request.
+
+# 4. Tear down
+./scripts/dev.ps1 -Down
+```
+
+Run pieces individually without Docker:
+
+```powershell
+npm install && npm run dev
+python -m uvicorn main:app --reload --app-dir src/services/extraction-service --port 8001
+```
+
+Run the test suites:
+
+```powershell
+npm test                            # Jest
+python -m pytest tests/ -q          # pytest
+```
+
 ## Documentation
 
 See [`docs/`](docs/README.md) for the full reference documentation.
