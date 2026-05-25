@@ -9,7 +9,7 @@ This file documents the AI agent architecture used in the Florida Annual Report 
 - Validates file type and integrity
 
 ## Agent 2: Extraction Agent
-- Runs OCR (AWS Textract for scanned PDFs) + NLP (spaCy)
+- Runs OCR (Azure AI Document Intelligence for scanned PDFs) + NLP (spaCy)
 - Falls back to LLM extraction when rule-based NER is insufficient
 - Outputs structured JSON
 

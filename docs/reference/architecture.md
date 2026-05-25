@@ -75,7 +75,7 @@ flowchart LR
 - Stores processed Markdown in CosmosDB
 
 ### 2. Extraction Service
-- OCR via AWS Textract (scanned PDFs)
+- OCR via Azure AI Document Intelligence (scanned PDFs)
 - NLP entity recognition via spaCy
 - LLM fallback extraction (structured JSON output)
 - Returns field values + confidence scores

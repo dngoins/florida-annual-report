@@ -61,7 +61,7 @@ Before making any changes, read the relevant spec in `docs/reference/`:
 - **Backend:** Node.js/Python microservices behind an API Gateway
 - **Database:** AzureSQL (`companies`, `filings`, `officers`, `submissions`, `audit_logs`)
 - **Object Storage:** Azure BLOB + CosmosDB (documents, receipts)
-- **OCR:** AWS Textract (scanned PDFs)
+- **OCR:** Azure AI Document Intelligence (scanned PDFs)
 - **NLP:** spaCy + LLM fallback
 - **Automation:** Playwright (Sunbiz form submission)
 - **Auth:** OAuth2 + RBAC + MFA

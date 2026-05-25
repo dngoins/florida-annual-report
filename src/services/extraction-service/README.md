@@ -6,7 +6,7 @@ FastAPI service for document extraction using OCR, NLP, and LLM.
 
 The Extraction Service implements a 3-stage pipeline for extracting structured data from Florida Annual Report documents:
 
-1. **Stage 1: OCR** - AWS Textract for scanned PDFs
+1. **Stage 1: OCR** - Azure AI Document Intelligence for scanned PDFs
 2. **Stage 2: NER** - spaCy for named entity recognition  
 3. **Stage 3: LLM** - Claude fallback for low-confidence fields
 
@@ -98,9 +98,9 @@ Extract from pre-provided text (skips OCR).
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `AWS_REGION` | AWS region for Textract | Yes |
-| `AWS_ACCESS_KEY_ID` | AWS access key | Yes |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key | Yes |
+| `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` | Document Intelligence endpoint URL | Yes |
+| `AZURE_DOCUMENT_INTELLIGENCE_KEY` | Document Intelligence API key | Yes |
+
 | `ANTHROPIC_API_KEY` | Anthropic API key for Claude | Yes (for LLM fallback) |
 | `PORT` | Server port (default: 8000) | No |
 
@@ -139,7 +139,7 @@ extraction-service/
 └── extraction/
     ├── __init__.py
     ├── models.py          # Pydantic data models
-    ├── ocr.py             # AWS Textract integration
+    ├── ocr.py             # Azure Document Intelligence integration
     ├── ner.py             # spaCy NER extraction
     ├── llm.py             # Claude LLM fallback
     └── pipeline.py        # Pipeline orchestration
@@ -147,7 +147,7 @@ extraction-service/
 
 ## Security Notes
 
-- Never commit AWS or Anthropic credentials
+- Never commit Azure or Anthropic credentials
 - Use environment variables or Azure Key Vault
 - All extraction actions are logged to audit trail
 - Fields flagged `needs_review` must be manually confirmed

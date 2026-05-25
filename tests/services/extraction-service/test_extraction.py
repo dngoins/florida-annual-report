@@ -22,7 +22,7 @@ from extraction.models import (
     ExtractionRequest,
     ExtractionResponse,
 )
-from extraction.ocr import TextractOCR, OCRError
+from extraction.ocr import AzureDocumentIntelligenceOCR, OCRError, TextractOCR
 from extraction.ner import SpacyNER
 from extraction.llm import ClaudeLLM, LLMError
 from extraction.pipeline import ExtractionPipeline, ExtractionError
@@ -86,69 +86,59 @@ class TestModels:
 # OCR Tests
 # =============================================================================
 
-class TestTextractOCR:
-    """Test AWS Textract OCR module."""
-    
-    @patch("extraction.ocr.boto3")
-    def test_extract_text_success(self, mock_boto3):
+class TestAzureDocumentIntelligenceOCR:
+    """Test Azure AI Document Intelligence OCR module."""
+
+    def _build_result(self, lines: list[tuple[str, float]]):
+        """Build a mock AnalyzeResult shape with the given (text, confidence) words."""
+        result = MagicMock()
+        result.content = "\n".join(text for text, _ in lines)
+        page = MagicMock()
+        page.words = [MagicMock(confidence=conf) for _, conf in lines]
+        result.pages = [page]
+        return result
+
+    def test_extract_text_success(self):
         """Test successful text extraction."""
-        # Mock Textract response
+        ocr = AzureDocumentIntelligenceOCR(endpoint="https://x", api_key="k")
         mock_client = MagicMock()
-        mock_boto3.client.return_value = mock_client
-        mock_client.detect_document_text.return_value = {
-            "Blocks": [
-                {"BlockType": "LINE", "Text": "ARTICLES OF INCORPORATION", "Confidence": 99.5},
-                {"BlockType": "LINE", "Text": "Company Name: Test Corp LLC", "Confidence": 98.0},
-                {"BlockType": "WORD", "Text": "ARTICLES", "Confidence": 99.5},  # Should be ignored
-            ]
-        }
-        
-        ocr = TextractOCR()
+        ocr.client = mock_client
+        poller = MagicMock()
+        poller.result.return_value = self._build_result([
+            ("ARTICLES OF INCORPORATION", 0.995),
+            ("Company Name: Test Corp LLC", 0.98),
+        ])
+        mock_client.begin_analyze_document.return_value = poller
+
         text, confidence = ocr.extract_text(b"fake pdf bytes")
-        
+
         assert "ARTICLES OF INCORPORATION" in text
         assert "Test Corp LLC" in text
-        assert confidence > 0.97  # Average of 99.5 and 98.0
-    
-    @patch("extraction.ocr.boto3")
-    def test_extract_text_api_error(self, mock_boto3):
-        """Test handling of Textract API errors."""
-        from botocore.exceptions import ClientError
-        
+        assert confidence > 0.97
+
+    def test_extract_text_api_error(self):
+        """Test handling of Document Intelligence errors."""
+        ocr = AzureDocumentIntelligenceOCR(endpoint="https://x", api_key="k")
         mock_client = MagicMock()
-        mock_boto3.client.return_value = mock_client
-        mock_client.detect_document_text.side_effect = ClientError(
-            {"Error": {"Code": "InvalidParameterException", "Message": "Invalid document"}},
-            "DetectDocumentText"
+        ocr.client = mock_client
+        mock_client.begin_analyze_document.side_effect = RuntimeError(
+            "InvalidRequest: bad document"
         )
-        
-        ocr = TextractOCR()
+
         with pytest.raises(OCRError) as exc_info:
             ocr.extract_text(b"bad pdf")
-        
-        assert "InvalidParameterException" in str(exc_info.value)
-    
-    @patch("extraction.ocr.boto3")
-    def test_extract_from_s3(self, mock_boto3):
-        """Test S3-based extraction."""
-        mock_client = MagicMock()
-        mock_boto3.client.return_value = mock_client
-        mock_client.detect_document_text.return_value = {
-            "Blocks": [
-                {"BlockType": "LINE", "Text": "S3 Document Content", "Confidence": 95.0},
-            ]
-        }
-        
-        ocr = TextractOCR()
-        text, confidence = ocr.extract_from_s3("my-bucket", "documents/test.pdf")
-        
-        assert "S3 Document Content" in text
-        assert confidence == 0.95
-        
-        # Verify correct S3 params
-        mock_client.detect_document_text.assert_called_with(
-            Document={"S3Object": {"Bucket": "my-bucket", "Name": "documents/test.pdf"}}
-        )
+
+        assert "Azure Document Intelligence failed" in str(exc_info.value)
+
+    def test_missing_credentials_raises(self):
+        """Test that a missing endpoint/key raises OCRError on first use."""
+        ocr = AzureDocumentIntelligenceOCR(endpoint=None, api_key=None)
+        with pytest.raises(OCRError):
+            _ = ocr.client
+
+    def test_backward_compat_alias(self):
+        """TextractOCR is kept as an alias to AzureDocumentIntelligenceOCR."""
+        assert TextractOCR is AzureDocumentIntelligenceOCR
 
 
 # =============================================================================

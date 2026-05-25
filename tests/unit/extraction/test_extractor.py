@@ -7,7 +7,7 @@ Tests:
 - Full pipeline orchestration
 - OCR text extraction
 
-All external APIs (Textract, Anthropic) are mocked.
+All external APIs (Document Intelligence, Anthropic) are mocked.
 """
 
 import pytest
@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src/service
 from extraction.models import ExtractedFields, Officer, ConfidenceScores, NeedsReviewFlags
 from extraction.ner import SpacyNER
 from extraction.pipeline import ExtractionPipeline, ExtractionError
-from extraction.ocr import TextractOCR
+from extraction.ocr import AzureDocumentIntelligenceOCR
 
 # Import test fixtures
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
@@ -40,6 +40,24 @@ from fixtures.mock_responses import (
     CLAUDE_EXTRACTION_RESPONSE,
     CLAUDE_LOW_CONFIDENCE_RESPONSE,
 )
+
+
+def _docintel_result_from_textract_fixture(fixture: dict):
+    """Convert legacy Textract fixture into an Azure-style AnalyzeResult mock."""
+    lines = [b for b in fixture.get("Blocks", []) if b.get("BlockType") == "LINE"]
+    result = MagicMock()
+    result.content = "\n".join(b.get("Text", "") for b in lines)
+    page = MagicMock()
+    # Textract Confidence is 0-100; SDK confidence is 0-1.
+    page.words = [MagicMock(confidence=b.get("Confidence", 0) / 100.0) for b in lines]
+    result.pages = [page]
+    return result
+
+
+def _poller_for(result):
+    poller = MagicMock()
+    poller.result.return_value = result
+    return poller
 
 
 # =============================================================================
@@ -375,43 +393,46 @@ class TestOCRExtraction:
     """Tests for OCR text extraction."""
 
     @pytest.fixture
-    def mock_textract(self):
-        """Create OCR extractor with mocked Textract client."""
-        ocr = TextractOCR()
+    def mock_ocr(self):
+        """Create OCR extractor with mocked Document Intelligence client."""
+        ocr = AzureDocumentIntelligenceOCR(endpoint="https://x", api_key="k")
         ocr.client = MagicMock()
         return ocr
 
-    def test_textract_high_confidence_response(self, mock_textract):
-        """Test processing high confidence Textract response."""
-        mock_textract.client.detect_document_text.return_value = TEXTRACT_HIGH_CONFIDENCE_RESPONSE
-        
-        text, confidence = mock_textract.extract_text(b"fake_pdf_bytes")
-        
+    def test_textract_high_confidence_response(self, mock_ocr):
+        """High-confidence OCR result yields high overall confidence."""
+        mock_ocr.client.begin_analyze_document.return_value = _poller_for(
+            _docintel_result_from_textract_fixture(TEXTRACT_HIGH_CONFIDENCE_RESPONSE)
+        )
+
+        text, confidence = mock_ocr.extract_text(b"fake_pdf_bytes")
+
         assert "ARTICLES OF INCORPORATION" in text
         assert confidence > 0.9
 
-    def test_textract_low_confidence_response(self, mock_textract):
-        """Test processing low confidence Textract response."""
-        mock_textract.client.detect_document_text.return_value = TEXTRACT_LOW_CONFIDENCE_RESPONSE
-        
-        text, confidence = mock_textract.extract_text(b"fake_pdf_bytes")
-        
-        # Low confidence OCR
+    def test_textract_low_confidence_response(self, mock_ocr):
+        """Low-confidence OCR result yields low overall confidence."""
+        mock_ocr.client.begin_analyze_document.return_value = _poller_for(
+            _docintel_result_from_textract_fixture(TEXTRACT_LOW_CONFIDENCE_RESPONSE)
+        )
+
+        text, confidence = mock_ocr.extract_text(b"fake_pdf_bytes")
+
         assert confidence < 0.5
 
-    def test_textract_empty_response(self, mock_textract):
-        """Test handling empty Textract response."""
-        mock_textract.client.detect_document_text.return_value = {
-            "DocumentMetadata": {"Pages": 0},
-            "Blocks": []
-        }
-        
-        text, confidence = mock_textract.extract_text(b"fake_pdf_bytes")
-        
+    def test_textract_empty_response(self, mock_ocr):
+        """Empty OCR result yields empty text and zero confidence."""
+        empty = MagicMock()
+        empty.content = ""
+        empty.pages = []
+        mock_ocr.client.begin_analyze_document.return_value = _poller_for(empty)
+
+        text, confidence = mock_ocr.extract_text(b"fake_pdf_bytes")
+
         assert text == ""
         assert confidence == 0.0
 
-    def test_scanned_pdf_detection(self, mock_textract):
+    def test_scanned_pdf_detection(self, mock_ocr):
         """Test scanned PDF detection."""
         # This would require actual PDF parsing, just test the method exists
-        assert hasattr(mock_textract, "is_scanned_pdf")
+        assert hasattr(mock_ocr, "is_scanned_pdf")

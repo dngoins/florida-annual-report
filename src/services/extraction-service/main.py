@@ -1,4 +1,4 @@
-﻿"""
+"""
 Florida Annual Report - Extraction Service
 
 FastAPI application providing OCR, NER, and LLM-based document extraction.
@@ -127,7 +127,7 @@ async def extract_document(request: ExtractionRequest):
     Trigger extraction on an uploaded document.
 
     Runs the 3-stage pipeline:
-    1. OCR (AWS Textract) for scanned PDFs
+    1. OCR (Azure Document Intelligence) for scanned PDFs
     2. NER (spaCy) for entity extraction
     3. LLM (Claude) fallback for low-confidence fields
     """

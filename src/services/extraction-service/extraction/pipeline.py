@@ -1,4 +1,4 @@
-﻿"""
+"""
 Extraction Pipeline - Orchestrates OCR, NER, and LLM stages.
 
 Implements the full extraction workflow per docs/reference/document-extraction.md
@@ -12,7 +12,7 @@ from extraction.models import (
     ConfidenceScores,
     NeedsReviewFlags,
 )
-from extraction.ocr import TextractOCR, OCRError
+from extraction.ocr import AzureDocumentIntelligenceOCR, OCRError
 from extraction.ner import SpacyNER, NERError
 from extraction.llm import ClaudeLLM, LLMError
 
@@ -23,7 +23,7 @@ class ExtractionPipeline:
     """
     Three-stage extraction pipeline:
 
-    1. OCR (AWS Textract) - for scanned PDFs
+    1. OCR (Azure Document Intelligence) - for scanned PDFs
     2. NER (spaCy) - primary entity extraction
     3. LLM (Claude) - fallback for low-confidence fields
     """
@@ -32,7 +32,7 @@ class ExtractionPipeline:
 
     def __init__(
         self,
-        ocr_client: Optional[TextractOCR] = None,
+        ocr_client: Optional[AzureDocumentIntelligenceOCR] = None,
         ner_client: Optional[SpacyNER] = None,
         llm_client: Optional[ClaudeLLM] = None,
     ):
@@ -40,7 +40,7 @@ class ExtractionPipeline:
         Initialize the extraction pipeline.
 
         Args:
-            ocr_client: TextractOCR instance (lazy-loaded if not provided)
+            ocr_client: AzureDocumentIntelligenceOCR instance (lazy-loaded if not provided)
             ner_client: SpacyNER instance (lazy-loaded if not provided)
             llm_client: ClaudeLLM instance (lazy-loaded if not provided)
         """
@@ -49,10 +49,10 @@ class ExtractionPipeline:
         self._llm = llm_client
 
     @property
-    def ocr(self) -> TextractOCR:
+    def ocr(self) -> AzureDocumentIntelligenceOCR:
         """Lazy-load OCR client."""
         if self._ocr is None:
-            self._ocr = TextractOCR()
+            self._ocr = AzureDocumentIntelligenceOCR()
         return self._ocr
 
     @property
@@ -135,31 +135,52 @@ class ExtractionPipeline:
     def _run_ocr(self, document_bytes: bytes, use_ocr: bool) -> tuple[str, float]:
         """Run OCR stage if document is scanned."""
         if not use_ocr:
-            return "", 0.0
+            return self._pypdf_text(document_bytes)
 
         try:
             # Check if PDF is scanned
             if self.ocr.is_scanned_pdf(document_bytes):
                 logger.info("Detected scanned PDF, running OCR...")
-                text, confidence = self.ocr.extract_text(document_bytes)
-                return text, confidence
+                try:
+                    text, confidence = self.ocr.extract_text(document_bytes)
+                    return text, confidence
+                except OCRError as ocr_err:
+                    # OCR backend unavailable (e.g. no Azure creds in local dev).
+                    # Fall back to whatever pypdf can pull out so the pipeline
+                    # can still try NER/LLM on partial text.
+                    logger.warning(
+                        f"OCR backend unavailable ({ocr_err}); "
+                        "falling back to pypdf text extraction."
+                    )
+                    text, _ = self._pypdf_text(document_bytes)
+                    if not text.strip():
+                        raise ExtractionError(
+                            f"OCR stage failed and no extractable PDF text: {ocr_err}"
+                        ) from ocr_err
+                    # Lower confidence since we know the doc looked scanned.
+                    return text, 0.35
             else:
-                # Native PDF - extract text directly
-                from pypdf import PdfReader
-                import io
-
-                reader = PdfReader(io.BytesIO(document_bytes))
-                text = ""
-                for page in reader.pages:
-                    text += page.extract_text() or ""
-                return text, 0.95  # High confidence for native PDF text
+                return self._pypdf_text(document_bytes)
 
         except OCRError as e:
             logger.error(f"OCR failed: {e}")
             raise ExtractionError(f"OCR stage failed: {e}") from e
+        except ExtractionError:
+            raise
         except Exception as e:
             logger.error(f"Document processing failed: {e}")
             raise ExtractionError(f"Document processing failed: {e}") from e
+
+    def _pypdf_text(self, document_bytes: bytes) -> tuple[str, float]:
+        """Extract text from a native PDF using pypdf."""
+        from pypdf import PdfReader
+        import io
+
+        reader = PdfReader(io.BytesIO(document_bytes))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text, 0.95  # High confidence for native PDF text
 
     def _run_ner(self, text: str) -> tuple[ExtractedFields, dict[str, float]]:
         """Run NER extraction stage."""

@@ -1,51 +1,78 @@
-﻿"""
-OCR Module - AWS Textract Integration
+"""
+OCR Module - Azure AI Document Intelligence Integration
 
-Stage 1 of the extraction pipeline: converts scanned PDFs to text using AWS Textract.
+Stage 1 of the extraction pipeline: converts scanned PDFs to text using
+Azure AI Document Intelligence (formerly Form Recognizer).
 """
 
-import os
+import io
 import logging
+import os
 from typing import Optional
-
-import boto3
-from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
 
-class TextractOCR:
-    """
-    AWS Textract OCR client for extracting text from scanned PDFs.
+class OCRError(Exception):
+    """Custom exception for OCR failures."""
+    pass
 
-    Uses boto3 to call Textract's detect_document_text API.
+
+class AzureDocumentIntelligenceOCR:
+    """
+    Azure AI Document Intelligence OCR client.
+
+    Uses the `prebuilt-read` model to extract printed and handwritten text
+    from scanned PDFs and images.
     """
 
     CONFIDENCE_THRESHOLD = 0.75
 
     def __init__(
         self,
-        aws_region: Optional[str] = None,
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        api_key: Optional[str] = None,
     ):
         """
-        Initialize Textract client.
+        Initialize the Document Intelligence client.
 
         Args:
-            aws_region: AWS region (defaults to AWS_REGION env var)
-            aws_access_key_id: AWS access key (defaults to env var)
-            aws_secret_access_key: AWS secret key (defaults to env var)
+            endpoint: Azure Document Intelligence endpoint
+                     (defaults to AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT env var)
+            api_key: API key (defaults to AZURE_DOCUMENT_INTELLIGENCE_KEY env var)
         """
-        self.region = aws_region or os.getenv("AWS_REGION", "us-east-1")
+        self.endpoint = endpoint or os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+        self.api_key = api_key or os.getenv("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+        self._client = None
 
-        # Create boto3 client
-        self.client = boto3.client(
-            "textract",
-            region_name=self.region,
-            aws_access_key_id=aws_access_key_id or os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=aws_secret_access_key or os.getenv("AWS_SECRET_ACCESS_KEY"),
-        )
+    @property
+    def client(self):
+        """Lazy-load the Azure SDK client so the module imports without credentials."""
+        if self._client is None:
+            if not self.endpoint or not self.api_key:
+                raise OCRError(
+                    "Azure Document Intelligence not configured: set "
+                    "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and "
+                    "AZURE_DOCUMENT_INTELLIGENCE_KEY environment variables."
+                )
+            try:
+                from azure.ai.documentintelligence import DocumentIntelligenceClient
+                from azure.core.credentials import AzureKeyCredential
+            except ImportError as exc:
+                raise OCRError(
+                    "azure-ai-documentintelligence package is not installed."
+                ) from exc
+
+            self._client = DocumentIntelligenceClient(
+                endpoint=self.endpoint,
+                credential=AzureKeyCredential(self.api_key),
+            )
+        return self._client
+
+    @client.setter
+    def client(self, value):
+        """Allow tests to inject a mock client."""
+        self._client = value
 
     def is_scanned_pdf(self, document_bytes: bytes) -> bool:
         """
@@ -57,11 +84,8 @@ class TextractOCR:
         Returns:
             True if the PDF appears to be scanned/image-based
         """
-        # Simple heuristic: check if PDF has extractable text
-        # In production, use pypdf to check for text content
         try:
             from pypdf import PdfReader
-            import io
 
             reader = PdfReader(io.BytesIO(document_bytes))
             text_content = ""
@@ -76,7 +100,7 @@ class TextractOCR:
 
     def extract_text(self, document_bytes: bytes) -> tuple[str, float]:
         """
-        Extract text from a document using AWS Textract.
+        Extract text from a document using Azure Document Intelligence.
 
         Args:
             document_bytes: Raw document bytes (PDF or image)
@@ -85,75 +109,48 @@ class TextractOCR:
             Tuple of (extracted_text, average_confidence)
         """
         try:
-            response = self.client.detect_document_text(
-                Document={"Bytes": document_bytes}
+            try:
+                from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
+            except ImportError as exc:
+                raise OCRError(
+                    "azure-ai-documentintelligence package is not installed."
+                ) from exc
+
+            poller = self.client.begin_analyze_document(
+                "prebuilt-read",
+                AnalyzeDocumentRequest(bytes_source=document_bytes),
             )
+            result = poller.result()
 
-            lines = []
+            text = result.content or ""
+
+            # Average per-word confidence across all pages, when available.
             confidences = []
+            for page in getattr(result, "pages", None) or []:
+                for word in getattr(page, "words", None) or []:
+                    conf = getattr(word, "confidence", None)
+                    if conf is not None:
+                        confidences.append(conf)
 
-            for block in response.get("Blocks", []):
-                if block["BlockType"] == "LINE":
-                    lines.append(block.get("Text", ""))
-                    confidences.append(block.get("Confidence", 0) / 100.0)
-
-            text = "\n".join(lines)
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
 
             logger.info(
-                f"Textract extracted {len(lines)} lines with avg confidence {avg_confidence:.2f}"
+                f"Document Intelligence extracted {len(text)} chars across "
+                f"{len(getattr(result, 'pages', None) or [])} pages "
+                f"with avg confidence {avg_confidence:.2f}"
             )
 
             return text, avg_confidence
 
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "Unknown")
-            logger.error(f"Textract API error: {error_code} - {e}")
-            raise OCRError(f"AWS Textract failed: {error_code}") from e
+        except OCRError:
+            raise
         except Exception as e:
-            logger.error(f"OCR extraction failed: {e}")
-            raise OCRError(f"OCR extraction failed: {e}") from e
-
-    def extract_from_s3(self, bucket: str, key: str) -> tuple[str, float]:
-        """
-        Extract text from a document stored in S3.
-
-        Args:
-            bucket: S3 bucket name
-            key: S3 object key
-
-        Returns:
-            Tuple of (extracted_text, average_confidence)
-        """
-        try:
-            response = self.client.detect_document_text(
-                Document={
-                    "S3Object": {
-                        "Bucket": bucket,
-                        "Name": key,
-                    }
-                }
-            )
-
-            lines = []
-            confidences = []
-
-            for block in response.get("Blocks", []):
-                if block["BlockType"] == "LINE":
-                    lines.append(block.get("Text", ""))
-                    confidences.append(block.get("Confidence", 0) / 100.0)
-
-            text = "\n".join(lines)
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-
-            return text, avg_confidence
-
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "Unknown")
-            logger.error(f"Textract S3 API error: {error_code} - {e}")
-            raise OCRError(f"AWS Textract S3 failed: {error_code}") from e
+            # Catch Azure SDK errors and any unexpected failures.
+            error_name = type(e).__name__
+            logger.error(f"Document Intelligence error: {error_name} - {e}")
+            raise OCRError(f"Azure Document Intelligence failed: {error_name}: {e}") from e
 
 
-class OCRError(Exception):
-    """Custom exception for OCR failures."""
-    pass
+# Backward-compatible alias: existing code (pipeline, tests) imports `TextractOCR`.
+# This indirection keeps the public name stable while the implementation is on Azure.
+TextractOCR = AzureDocumentIntelligenceOCR

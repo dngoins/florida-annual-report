@@ -27,7 +27,7 @@ router.post('/', async (req, res, next) => {
     }
     
     // TODO: Integrate with Extraction Agent
-    // TODO: Call OCR service (AWS Textract)
+    // TODO: Call OCR service (Azure AI Document Intelligence)
     // TODO: Run NLP pipeline (spaCy + LLM)
     
     // Placeholder response - will be implemented when Extraction Agent is ready

@@ -8,7 +8,7 @@ The extraction pipeline converts uploaded documents into structured, validated J
 flowchart TD
     A[Upload PDF/DOCX/CSV/MD] --> B[Convert to Markdown]
     B --> C{Scanned PDF?}
-    C -- Yes --> D[OCR via AWS Textract]
+    C -- Yes --> D[OCR via Azure AI Document Intelligence]
     C -- No --> E[Direct Text Extraction]
     D --> F[Text Parsing]
     E --> F
@@ -35,7 +35,7 @@ flowchart TD
 ## Step 2: OCR (Scanned PDFs only)
 
 - Detect if PDF is image-based (scanned)
-- If yes: run **AWS Textract** to extract text
+- If yes: run **Azure AI Document Intelligence** to extract text
 - Output: raw text string
 
 ## Step 3: Text Parsing
