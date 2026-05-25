@@ -31,43 +31,87 @@ Address: 555 Business Park Circle, Fort Lauderdale, FL 33301`;
 const EXTRACTION_API =
   process.env.NEXT_PUBLIC_EXTRACTION_API || 'http://localhost:8001';
 
+const BINARY_EXTS = ['.pdf', '.docx'];
+const TEXT_EXTS = ['.txt', '.md', '.csv'];
+
 export default function UploadPage() {
   const router = useRouter();
   const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('text') && !file.name.endsWith('.txt')) {
-      setError('For this demo, please upload a .txt file. PDF/DOCX support is wired through the /documents endpoint.');
+    const picked = e.target.files?.[0];
+    if (!picked) return;
+    const ext = '.' + (picked.name.split('.').pop() || '').toLowerCase();
+    if (BINARY_EXTS.includes(ext)) {
+      // PDF/DOCX: keep file handle, send as multipart later. Don't try to read as text.
+      setFile(picked);
+      setText('');
+      setError(null);
       return;
     }
-    setError(null);
-    setText(await file.text());
+    if (TEXT_EXTS.includes(ext) || picked.type.startsWith('text')) {
+      setFile(null);
+      setError(null);
+      setText(await picked.text());
+      return;
+    }
+    setError(`Unsupported file type: ${ext}. Allowed: .pdf, .docx, .txt, .md, .csv`);
+  }
+
+  async function uploadBinary(picked: File): Promise<string> {
+    const documentId = `demo-${Date.now()}`;
+    const form = new FormData();
+    form.append('file', picked);
+    form.append('document_id', documentId);
+    const uploadRes = await fetch(`${EXTRACTION_API}/documents`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed (${uploadRes.status}): ${await uploadRes.text()}`);
+    }
+
+    const extractRes = await fetch(`${EXTRACTION_API}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ document_id: documentId }),
+    });
+    if (!extractRes.ok) {
+      throw new Error(`Extraction failed (${extractRes.status}): ${await extractRes.text()}`);
+    }
+    const data = await extractRes.json();
+    sessionStorage.setItem(`extraction:${documentId}`, JSON.stringify(data));
+    return documentId;
+  }
+
+  async function extractText(rawText: string): Promise<string> {
+    const documentId = `demo-${Date.now()}`;
+    const body = new URLSearchParams({ document_id: documentId, text: rawText });
+    const res = await fetch(`${EXTRACTION_API}/extract/text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    if (!res.ok) {
+      throw new Error(`Extraction API returned ${res.status}`);
+    }
+    const data = await res.json();
+    sessionStorage.setItem(`extraction:${documentId}`, JSON.stringify(data));
+    return documentId;
   }
 
   async function handleSubmit() {
-    if (!text.trim()) {
-      setError('Paste or load some text first.');
+    if (!file && !text.trim()) {
+      setError('Pick a PDF/DOCX file or paste some text first.');
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const documentId = `demo-${Date.now()}`;
-      const body = new URLSearchParams({ document_id: documentId, text });
-      const res = await fetch(`${EXTRACTION_API}/extract/text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
-      });
-      if (!res.ok) {
-        throw new Error(`Extraction API returned ${res.status}`);
-      }
-      const data = await res.json();
-      sessionStorage.setItem(`extraction:${documentId}`, JSON.stringify(data));
+      const documentId = file ? await uploadBinary(file) : await extractText(text);
       router.push(`/results/${documentId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Extraction failed');
@@ -79,33 +123,44 @@ export default function UploadPage() {
     <main style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1.5rem', fontFamily: 'system-ui, sans-serif' }}>
       <p><a href="/">← Home</a></p>
       <h1>Upload &amp; Extract</h1>
-      <p>Paste Articles of Incorporation text (or load a .txt file). The extraction service will pull out the entity name, registered agent, addresses, and officers.</p>
+      <p>Upload Articles of Incorporation (PDF, DOCX, TXT, MD, or CSV) — or paste the text. The extraction service will pull out the entity name, registered agent, addresses, and officers.</p>
 
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={() => setText(SAMPLE_TEXT)} disabled={busy}>Load sample text</button>
+        <button onClick={() => { setText(SAMPLE_TEXT); setFile(null); }} disabled={busy}>Load sample text</button>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>or upload a .txt file:</span>
-          <input type="file" accept=".txt,text/plain" onChange={handleFile} disabled={busy} />
+          <span>or upload a file:</span>
+          <input
+            type="file"
+            accept=".pdf,.docx,.txt,.md,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+            onChange={handleFile}
+            disabled={busy}
+          />
         </label>
-        <button onClick={() => setText('')} disabled={busy}>Clear</button>
+        <button onClick={() => { setText(''); setFile(null); }} disabled={busy}>Clear</button>
       </div>
+
+      {file && (
+        <p style={{ background: '#eff6ff', padding: '0.6rem 0.9rem', borderRadius: 4, fontSize: 14 }}>
+          📄 <strong>{file.name}</strong> ({Math.round(file.size / 1024)} KB) — will be sent as a binary upload. The textarea below is ignored for binary files.
+        </p>
+      )}
 
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={18}
-        disabled={busy}
-        placeholder="Paste Articles of Incorporation text here..."
+        onChange={(e) => { setText(e.target.value); if (e.target.value) setFile(null); }}
+        rows={file ? 6 : 18}
+        disabled={busy || !!file}
+        placeholder={file ? 'Binary file selected above — textarea disabled.' : 'Paste Articles of Incorporation text here...'}
         style={{ width: '100%', fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 13, padding: '0.75rem', boxSizing: 'border-box' }}
       />
 
       <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <button
           onClick={handleSubmit}
-          disabled={busy || !text.trim()}
+          disabled={busy || (!file && !text.trim())}
           style={{ padding: '0.6rem 1.25rem', fontSize: 16, background: '#2563eb', color: 'white', border: 'none', borderRadius: 4, cursor: busy ? 'wait' : 'pointer' }}
         >
-          {busy ? 'Extracting…' : 'Extract fields →'}
+          {busy ? 'Extracting…' : file ? `Upload ${file.name} & extract →` : 'Extract fields →'}
         </button>
         {error && <span style={{ color: '#b91c1c' }}>{error}</span>}
       </div>
