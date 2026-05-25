@@ -151,38 +151,51 @@ class SpacyNER:
 
     def _extract_registered_agent(self, text: str, doc) -> tuple[Optional[str], float]:
         """Extract registered agent name."""
-        # Use \s+ so we match both "label\n  VALUE" and "label: VALUE" formats.
-        name_re = r"([A-Z][A-Z .,'\-]{3,80}?)"
-        next_line_patterns = [
-            (
-                r"(?im)(?:Name\s+(?:and\s+Address\s+)?of\s+)?"
-                r"Registered\s+Agent\s*[:\-]?\s+" + name_re + r"\s*$"
-            ),
-            (
-                r"(?im)The\s+name(?:\s+and\s+(?:Florida\s+)?street\s+address)?"
-                r"\s+of\s+the\s+registered\s+agent\s+(?:is)?\s*[:\-]?\s+"
-                + name_re + r"\s*$"
-            ),
-        ]
-        for pattern in next_line_patterns:
+        # Highest confidence: the "Registered Agent Signature: NAME" line is
+        # always present in Florida Articles and never contains the address.
+        sig_match = re.search(
+            r"(?i)Registered\s+Agent\s+Signature\s*[:\-]\s*([A-Z][A-Z .,'\-]{3,80}?)"
+            r"(?=\s*(?:\n|Article|I\s+certify|I\s+am|$))",
+            text,
+        )
+        if sig_match:
+            name = self._clean_person_name(sig_match.group(1))
+            if name:
+                return name, 0.95
+
+        # Florida Articles inline format (OCR flattens to a single line):
+        #   "...address of the registered agent is: NAME <ADDRESS>"
+        # Also handles sample format: "Registered Agent: John Michael Smith\n..."
+        name_re = r"([A-Z][A-Za-z .'\-]{3,80}?)"
+        # Stop the name at a digit, "P.O.", end-of-line, or a known title word.
+        stop = (
+            r"(?=\s+(?:\d|P\.?\s*O\.?\s*BOX|PO\s+BOX|"
+            r"SEC(?:RETARY)?|PRES(?:IDENT)?|VP|VICE|TREAS(?:URER)?|"
+            r"DIR(?:ECTOR)?|MGR|MANAGER|CEO|CFO|COO|"
+            r"DR\.|MR\.|MS\.|MRS\.|JR\.|SR\.|PHD|RABBAH|MADAME|ESQ|"
+            r"Agent\s+Address|Address)|\s*$)"
+        )
+        # Pattern A: bare "Registered Agent:" label at start of a line.
+        # Anchored so we don't match inside the long-form sentence.
+        pattern_a = (
+            r"(?im)^\s*Registered\s+Agent\s*[:\-]\s+" + name_re
+            + r"(?:\s*\n|\s+Address|\s*$)"
+        )
+        # Pattern B: long form sentence — must end in "is:" + name + address-start.
+        pattern_b = (
+            r"(?i)The\s+name(?:\s+and\s+(?:Florida\s+)?street\s+address)?"
+            r"\s+of\s+the\s+registered\s+agent\s+is\s*[:\-]\s+"
+            + name_re + stop
+        )
+        # Pattern C: "Agent Name: NAME" (used in some sample docs).
+        pattern_c = r"(?im)^\s*Agent\s+Name\s*[:\-]\s+" + name_re + r"\s*$"
+
+        for pattern in (pattern_a, pattern_b, pattern_c):
             match = re.search(pattern, text)
             if match:
                 name = self._clean_person_name(match.group(1))
                 if name:
-                    return name, 0.90
-
-        # Same-line patterns
-        inline_patterns = [
-            r"Registered\s+Agent\s*[:\-]\s*([A-Z][A-Za-z .,'\-]+?)(?:\n|Address|Agent\s+Address|$)",
-            r"Agent\s+Name\s*[:\-]\s*([A-Z][A-Za-z .,'\-]+?)(?:\n|$)",
-            r"The\s+registered\s+agent\s+(?:is|shall\s+be)\s*[:\-]?\s*([A-Z][A-Za-z .,'\-]+?)(?:\n|,|$)",
-        ]
-        for pattern in inline_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-            if match:
-                name = self._clean_person_name(match.group(1))
-                if name:
-                    return name, 0.85
+                    return name, 0.88
 
         # NER fallback: PERSON entity near "agent" keyword
         agent_idx = text.lower().find("registered agent")
@@ -197,16 +210,15 @@ class SpacyNER:
 
     @staticmethod
     def _clean_person_name(raw: str) -> Optional[str]:
-        """Trim trailing role words ('SEC', 'PRES', etc.) and punctuation from a person name."""
+        """Trim trailing role/honorific words and punctuation from a person name."""
         name = raw.strip().strip(".,;:")
-        # Drop trailing role abbreviations / titles that get glommed onto the name.
-        name = re.sub(
-            r"\s+(?:SEC|PRES|VP|CEO|CFO|COO|DIR|MGR|MGRM?|MANAGER|SECRETARY|PRESIDENT|TREASURER|DIRECTOR)\b.*$",
-            "",
-            name,
-            flags=re.IGNORECASE,
-        ).strip()
-        # Reject single tokens.
+        # Drop trailing role abbreviations / titles / honorifics that get glommed on.
+        trailing_junk = (
+            r"\s+(?:SEC(?:RETARY)?|PRES(?:IDENT)?|VP|VICE|TREAS(?:URER)?|"
+            r"DIR(?:ECTOR)?|MGR|MANAGER|CEO|CFO|COO|"
+            r"DR|MR|MS|MRS|JR|SR|PHD|RABBAH|MADAME|ESQ)\.?\b.*$"
+        )
+        name = re.sub(trailing_junk, "", name, flags=re.IGNORECASE).strip()
         if len(name.split()) < 2:
             return None
         if len(name) < 4 or len(name) > 80:
@@ -217,66 +229,99 @@ class SpacyNER:
         """Extract address by type (principal or mailing)."""
         if address_type == "principal":
             label_patterns = [
-                r"(?:The\s+)?Principal\s+(?:Place\s+of\s+Business|Business\s+Address|Address)(?:\s+address)?(?:\s+is)?",
+                r"(?:The\s+)?Principal\s+(?:Place\s+of\s+Business|Business\s+Address|Address)"
+                r"(?:\s+address)?(?:\s+is)?",
                 r"Principal\s+(?:Business\s+)?Address(?:\s+is)?",
             ]
         else:
             label_patterns = [
-                r"(?:The\s+)?Mailing\s+Address(?:\s+of\s+the\s+(?:corporation|company|entity|LLC))?(?:\s+is)?",
+                r"(?:The\s+)?Mailing\s+Address(?:\s+of\s+the\s+(?:corporation|company|entity|LLC))?"
+                r"(?:\s+is)?",
                 r"Mail(?:ing)?\s+Address(?:\s+is)?",
             ]
 
-        # Block-capture: label line, then 1-4 indented/non-empty lines, then blank line OR new label.
+        # Address-content: starts with digits OR "P.O. BOX" / "PO BOX",
+        # ends at a state+ZIP. Tolerates "FL." / "Florida," / commas anywhere.
+        addr_start = r"(?:\d+|P\.?\s*O\.?\s*BOX|PO\s+BOX)"
+        addr_body = r"[A-Za-z0-9\s.,#'\-]{5,200}?"
+        addr_end = r"(?:FL|Florida)\.?\s*[,\s]+\d{5}(?:-\d{4})?"
+        addr_re = rf"({addr_start}{addr_body}{addr_end})"
+
+        # Same-line OR multi-line: label, optional whitespace incl. newlines,
+        # then the address body. Stop matching at the address end.
         for label in label_patterns:
-            pattern = (
-                rf"(?im)^\s*{label}\s*[:\-]\s*\n"
-                r"((?:[ \t]*[^\n]+\n){1,4}?)"
-                r"(?=\s*$|\s*(?:Article|The\s+(?:mailing|principal|name)|Registered|Name\s+and\s+Address))"
-            )
+            pattern = rf"(?i){label}\s*[:\-]\s*{addr_re}"
             match = re.search(pattern, text)
             if match:
-                addr = self._normalize_address_block(match.group(1))
-                if addr:
-                    return addr, 0.88
-
-        # Same-line fallback: "Principal Address: 123 Main St, City, FL 33xxx"
-        flat_pattern = (
-            r"([0-9]+[A-Za-z0-9\s.,#'\-]+?,\s*[A-Za-z .]+,?\s*(?:FL|Florida)\.?\s*[,\s]+[0-9]{5}(?:-[0-9]{4})?)"
-        )
-        for label in label_patterns:
-            full = rf"(?i){label}\s*[:\-]\s*{flat_pattern}"
-            match = re.search(full, text)
-            if match:
-                return match.group(1).strip(), 0.80
+                addr = re.sub(r"\s+", " ", match.group(1)).strip().strip(",")
+                return addr, 0.90
 
         return None, 0.0
 
-    @staticmethod
-    def _normalize_address_block(block: str) -> Optional[str]:
-        """Collapse a multi-line address block into a single comma-separated string."""
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-        if not lines:
-            return None
-        joined = ", ".join(lines)
-        # Must look like an address: contain a ZIP or a state abbreviation.
-        if not re.search(r"\b[A-Z]{2}\.?\s*\d{5}\b|\bFL\.?\s*\d{5}\b|\d{5}(?:-\d{4})?", joined):
-            return None
-        return joined
-
     def _extract_officers(self, text: str, doc) -> tuple[list[Officer], float]:
-        """Extract officers/directors."""
+        """Extract officers/directors.
+
+        Florida Articles Article VII format (OCR-flattened):
+            Title: <TITLE> <NAME> <ADDRESS> Title: <TITLE> <NAME> <ADDRESS> ...
+
+        Common Florida title abbreviations: P (President), VP (Vice President),
+        T (Treasurer), SEC (Secretary), DIR (Director), AP (Asst President), etc.
+        """
         officers = []
 
-        # Common officer titles
-        titles = ["President", "Vice President", "Secretary", "Treasurer", "Director", "CEO", "CFO", "COO"]
+        # Find the Article VII / officers section.
+        section_match = re.search(
+            r"(?i)Article\s+VII[^A-Z]*(?:initial\s+)?officer.{0,80}?(?:is/are|are|is)\s*[:\-]?\s*(.+?)"
+            r"(?=Article\s+VIII|\Z)",
+            text,
+            re.DOTALL,
+        )
+        section = section_match.group(1) if section_match else text
 
-        # Pattern: Title: Name or Name, Title
+        # Split on "Title:" — each entry has form "<TITLE> <NAME...> <ADDRESS>".
+        # Title token: single letter, common 2-4 letter abbrev, or full word.
+        title_token = (
+            r"(?:VP|SEC|PRES|TREAS|DIR|AP|AS|AT|AV|P|V|T|S|D|"
+            r"VICE\s+PRESIDENT|PRESIDENT|SECRETARY|TREASURER|DIRECTOR|MANAGER|CEO|CFO|COO)"
+        )
+        # Name: 2-5 tokens (mixed case allowed) until address starts.
+        name_capture = r"([A-Z][A-Za-z .'\-]{2,80}?)"
+        addr_start = r"(?:\d+|P\.?\s*O\.?\s*BOX|PO\s+BOX)"
+        addr_body = r"[A-Za-z0-9\s.,#'\-]{5,200}?"
+        addr_end = r"(?:FL|Florida)\.?\s*[,\s]+\d{5}(?:-\d{4})?"
+        addr_capture = rf"({addr_start}{addr_body}{addr_end})"
+
+        entry_pattern = (
+            r"(?i)Title\s*[:\-]?\s*"
+            r"(" + title_token + r")\.?\s+"
+            + name_capture +
+            r"\s+" + addr_capture
+        )
+
+        for m in re.finditer(entry_pattern, section):
+            title_raw = m.group(1).upper().strip(".")
+            name = self._clean_person_name(m.group(2))
+            address = re.sub(r"\s+", " ", m.group(3)).strip().strip(",")
+            if not name:
+                continue
+            officers.append(Officer(
+                name=name,
+                title=self._normalize_title(title_raw),
+                address=address,
+            ))
+
+        if officers:
+            return officers, 0.85
+
+        # Fallback: legacy title-keyword scan (original implementation).
+        titles = ["President", "Vice President", "Secretary", "Treasurer",
+                  "Director", "CEO", "CFO", "COO"]
+        seen = set()
         for title in titles:
             patterns = [
                 rf"{title}[:\s]+([A-Z][A-Za-z\s,.'()-]+?)(?:\n|Address|$)",
                 rf"([A-Z][A-Za-z\s.']+)[,\s]+{title}",
             ]
-
             for pattern in patterns:
                 matches = re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE)
                 for match in matches:
@@ -303,6 +348,36 @@ class SpacyNER:
             confidence = 0.0
 
         return unique_officers, confidence
+
+    @staticmethod
+    def _normalize_title(abbrev: str) -> str:
+        """Expand Florida title abbreviations to full names."""
+        mapping = {
+            "P": "President",
+            "VP": "Vice President",
+            "V": "Vice President",
+            "VICE PRESIDENT": "Vice President",
+            "PRES": "President",
+            "PRESIDENT": "President",
+            "T": "Treasurer",
+            "TREAS": "Treasurer",
+            "TREASURER": "Treasurer",
+            "S": "Secretary",
+            "SEC": "Secretary",
+            "SECRETARY": "Secretary",
+            "D": "Director",
+            "DIR": "Director",
+            "DIRECTOR": "Director",
+            "AP": "Assistant President",
+            "AS": "Assistant Secretary",
+            "AT": "Assistant Treasurer",
+            "AV": "Assistant Vice President",
+            "MANAGER": "Manager",
+            "CEO": "CEO",
+            "CFO": "CFO",
+            "COO": "COO",
+        }
+        return mapping.get(abbrev.upper(), abbrev.title())
 
 
 class NERError(Exception):
