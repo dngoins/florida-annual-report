@@ -38,6 +38,7 @@ const mockNotificationService = {
 
 const mockFilingService = {
   updateStatus: jest.fn().mockResolvedValue(undefined),
+  updateOperationRetryCount: jest.fn().mockResolvedValue(undefined),
   getOperation: jest.fn().mockResolvedValue({
     id: 'op-123',
     filing_id: 'filing-456',
@@ -387,6 +388,15 @@ describe('RecoveryService', () => {
 
   describe('getOperationStatus', () => {
     it('should return operation status from filing service', async () => {
+      mockFilingService.getOperation.mockResolvedValue({
+        id: 'op-123',
+        filing_id: 'filing-456',
+        company_id: 'company-789',
+        type: 'submission',
+        status: 'failed',
+        last_error: 'Network timeout',
+        retry_count: 0,
+      });
       const status = await recoveryService.getOperationStatus('op-123');
 
       expect(status).toEqual({

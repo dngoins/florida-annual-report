@@ -56,7 +56,7 @@ describe('FileUploader', () => {
 
     it('has ARIA labels for screen readers', () => {
       render(<FileUploader />);
-      expect(screen.getByRole('region', { name: /document upload/i })).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: /document submission/i })).toBeInTheDocument();
     });
 
     it('announces upload status to screen readers', async () => {

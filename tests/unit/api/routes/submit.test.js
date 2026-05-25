@@ -22,6 +22,15 @@ const createTestApp = () => {
 describe('POST /submit', () => {
   let app;
 
+  beforeAll(() => {
+    // Use fake timers so the deadline check (Jan 1 - May 1) passes
+    jest.useFakeTimers().setSystemTime(new Date('2026-03-15T12:00:00Z'));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     app = createTestApp();
   });

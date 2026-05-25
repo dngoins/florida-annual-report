@@ -5,6 +5,9 @@
  * Use for global test configuration and custom matchers.
  */
 
+// Extend Jest with @testing-library/jest-dom custom matchers
+require('@testing-library/jest-dom');
+
 // Extend Jest timeout for slower tests
 jest.setTimeout(10000);
 

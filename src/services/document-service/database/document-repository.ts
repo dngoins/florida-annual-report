@@ -6,7 +6,8 @@
  */
 
 import * as sql from 'mssql';
-import { DocumentRecord, DocumentStatus, DocumentServiceConfig } from '../types';
+import { DocumentRecord, DocumentStatus } from '../types';
+import { DocumentServiceConfig } from '../config';
 
 /**
  * DocumentRepository handles all database operations for documents

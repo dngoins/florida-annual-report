@@ -281,6 +281,13 @@ describe('Recovery Service Router', () => {
 
   describe('POST /escalate/:operation_id', () => {
     it('should escalate operation to manual mode', async () => {
+      mockRecoveryService.getOperationStatus.mockResolvedValue({
+        id: 'op-123',
+        filing_id: 'filing-1',
+        company_id: 'company-1',
+        type: 'submission',
+        status: 'failed',
+      });
       mockRecoveryService.escalateToManual.mockResolvedValue({
         success: true,
         newStatus: 'manual_required',
@@ -306,6 +313,13 @@ describe('Recovery Service Router', () => {
     });
 
     it('should use default reason if not provided', async () => {
+      mockRecoveryService.getOperationStatus.mockResolvedValue({
+        id: 'op-123',
+        filing_id: 'filing-1',
+        company_id: 'company-1',
+        type: 'submission',
+        status: 'failed',
+      });
       mockRecoveryService.escalateToManual.mockResolvedValue({
         success: true,
         newStatus: 'manual_required',

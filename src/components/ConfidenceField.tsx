@@ -40,6 +40,7 @@ export function ConfidenceField({
   };
 
   const handleEdit = () => {
+    setEditValue('');
     setIsEditing(true);
   };
 

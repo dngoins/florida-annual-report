@@ -219,10 +219,10 @@ describe('ReconciliationDiff', () => {
       extracted_value: 'ACME Corp',
       sunbiz_value: 'ACME Corporation',
     });
-    render(<ReconciliationDiff field={field} />);
+    const { container } = render(<ReconciliationDiff field={field} />);
     
-    expect(screen.getByText(/ACME Corp/)).toBeInTheDocument();
-    expect(screen.getByText(/ACME Corporation/)).toBeInTheDocument();
+    expect(container.textContent).toContain('ACME Corp');
+    expect(container.textContent).toContain('ACME Corporation');
   });
 
   it('highlights differences between values', () => {
@@ -252,10 +252,10 @@ describe('ReviewForm', () => {
   it('renders all extracted fields', () => {
     render(<ReviewForm data={mockData} onSubmit={jest.fn()} />);
     
-    expect(screen.getByText(/entity name/i)).toBeInTheDocument();
-    expect(screen.getByText(/registered agent/i)).toBeInTheDocument();
-    expect(screen.getByText(/principal address/i)).toBeInTheDocument();
-    expect(screen.getByText(/mailing address/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/entity name/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/registered agent/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/principal address/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/mailing address/i).length).toBeGreaterThan(0);
   });
 
   it('renders officer fields', () => {

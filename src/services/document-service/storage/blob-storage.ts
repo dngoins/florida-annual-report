@@ -8,7 +8,8 @@
 import { BlobServiceClient, ContainerClient, BlockBlobClient } from '@azure/storage-blob';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
-import { BlobUploadResult, DocumentServiceConfig } from '../types';
+import { BlobUploadResult } from '../types';
+import { DocumentServiceConfig } from '../config';
 
 /**
  * BlobStorageClient handles all Azure Blob Storage operations

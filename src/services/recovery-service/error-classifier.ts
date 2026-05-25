@@ -95,7 +95,7 @@ const ERROR_PATTERNS: ErrorPattern[] = [
 
   // Validation errors - permanent (needs user action)
   {
-    pattern: /validation|invalid|required field|missing.*required/i,
+    pattern: /validation|required field|missing.*required/i,
     category: ErrorCategory.VALIDATION,
     isTransient: false,
   },
@@ -105,15 +105,22 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     isTransient: false,
   },
 
-  // Authentication errors - permanent
+  // Authentication errors - permanent (checked before generic "invalid")
   {
-    pattern: /auth|unauthorized|forbidden|401|403/i,
+    pattern: /auth(entication|orization)?.*failed|unauthorized|forbidden|401|403/i,
     category: ErrorCategory.AUTHENTICATION,
     isTransient: false,
   },
   {
     pattern: /credential|permission|access denied/i,
     category: ErrorCategory.AUTHENTICATION,
+    isTransient: false,
+  },
+
+  // Generic "invalid" - permanent validation (after auth patterns)
+  {
+    pattern: /invalid/i,
+    category: ErrorCategory.VALIDATION,
     isTransient: false,
   },
 ];
