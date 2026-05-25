@@ -42,7 +42,7 @@ Prereqs: Docker Desktop, Node.js 20+, Python 3.12+, PowerShell.
 ./scripts/dev.ps1 -Detach
 
 # 2. Open the UI / API
-#    Frontend:    http://localhost:3000
+#    Frontend:    http://localhost:3000   (click "Upload & Extract")
 #    Extraction:  http://localhost:8001/docs   (Swagger UI)
 
 # 3. Smoke-test the extraction pipeline
@@ -52,6 +52,8 @@ Prereqs: Docker Desktop, Node.js 20+, Python 3.12+, PowerShell.
 # 4. Tear down
 ./scripts/dev.ps1 -Down
 ```
+
+> **Authentication is disabled in local dev.** A single implicit `system` operator is used for all actions, so you won't see a sign-in page. The OAuth2 / MFA / RBAC modules under `src/auth/` are wired in for production deployments only — turn them on by setting `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and OAuth provider credentials in `.env`, then mounting the `authMiddleware` from `src/auth/middleware.ts`.
 
 Run pieces individually without Docker:
 

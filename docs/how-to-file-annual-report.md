@@ -39,32 +39,24 @@ Wait until both URLs respond:
 - Frontend → http://localhost:3000
 - Extraction API → http://localhost:8001/health
 
----
-
-## Step 2 — Sign In
-
-1. Navigate to http://localhost:3000.
-2. Click **Sign in** and authenticate via your OAuth2 provider (Google or Microsoft).
-3. If MFA is enabled for your role, enter the 6-digit code from your authenticator app.
-
-All sign-in events are written to the immutable audit log (`audit_logs` table).
+> **Local dev note:** Authentication is intentionally disabled in local mode. A single implicit `system` operator is used for all actions. See [README → Local Development](../README.md#quick-start-local-dev). Auth is wired in for production deployments only.
 
 ---
 
-## Step 3 — Upload Your Articles of Incorporation
+## Step 2 — Upload Your Articles of Incorporation
 
-1. From the dashboard click **New Filing → Upload Document**.
-2. Drag a PDF, DOCX, or scanned image (JPG/PNG, max 25 MB) onto the drop zone.
-3. The **Ingestion Agent** validates the file type and integrity, then hands off to the **Extraction Agent**.
-4. You'll see a progress indicator. Typical processing time:
-   - Text-based PDF/DOCX: **~5 seconds**
-   - Scanned image (requires OCR): **30–90 seconds**
+1. Open http://localhost:3000 and click **Start: Upload & Extract** (or go directly to http://localhost:3000/upload).
+2. Either click **Load sample text** to use the bundled demo, paste your Articles of Incorporation text into the textarea, or upload a `.txt` file.
+3. Click **Extract fields →**.
+4. The **Ingestion** + **Extraction Agents** process the document (NER + LLM fallback) and route you to the results page.
 
-> **Privacy:** Documents are stored in encrypted Azure Blob Storage with per-tenant isolation. They are retained for **7 years** per Florida record-keeping rules and then auto-purged.
+Typical processing time: **2–5 seconds** for text input. PDF/DOCX OCR (via `/documents` + `/extract`) takes 30–90 s and is available through the API but not yet wired into this demo UI.
+
+> **Privacy:** In production, documents will be stored in encrypted Azure Blob Storage with per-tenant isolation and 7-year retention per Florida record-keeping rules. The local dev demo keeps extraction results only in your browser's `sessionStorage`.
 
 ---
 
-## Step 4 — Review Extracted Data
+## Step 3 — Review Extracted Data
 
 The **Validation Agent** scores each extracted field's confidence (0.0 – 1.0). The UI Agent then renders a form pre-filled with what was found:
 
@@ -88,7 +80,7 @@ You **cannot proceed to Step 6 until every red-flagged field is resolved.** This
 
 ---
 
-## Step 5 — Reconcile with Live Sunbiz Records
+## Step 4 — Reconcile with Live Sunbiz Records
 
 1. Click **Reconcile with Sunbiz**.
 2. The **Reconciliation Agent** scrapes the current public record for your Document Number and shows a side-by-side diff:
@@ -110,7 +102,7 @@ You **cannot proceed to Step 6 until every red-flagged field is resolved.** This
 
 ---
 
-## Step 6 — Preview and Approve
+## Step 5 — Preview and Approve
 
 1. Click **Preview Filing**.
 2. A read-only preview of the completed Sunbiz form opens, showing the **exact payload** that will be submitted.
@@ -123,18 +115,18 @@ You **cannot proceed to Step 6 until every red-flagged field is resolved.** This
 
 ---
 
-## Step 7 — Complete CAPTCHA and Payment
+## Step 6 — Complete CAPTCHA and Payment
 
 The **Automation Agent** launches a Playwright browser session that fills the Sunbiz form. At two points it **stops and hands control to you**:
 
 1. **CAPTCHA** — A pop-up shows the live Sunbiz CAPTCHA. Solve it and click **Continue**.
 2. **Payment** — The Sunbiz payment screen is shown. Enter your card or e-check details directly into the Sunbiz form. The platform **never sees, stores, or transmits your payment information.**
 
-> If you walk away for more than 10 minutes, the Sunbiz session expires and you'll need to restart from Step 6. Your data is preserved.
+> If you walk away for more than 10 minutes, the Sunbiz session expires and you'll need to restart from Step 5. Your data is preserved.
 
 ---
 
-## Step 8 — Capture the Confirmation
+## Step 7 — Capture the Confirmation
 
 After payment succeeds:
 
@@ -150,7 +142,7 @@ After payment succeeds:
 
 ---
 
-## Step 9 — Download Your Records
+## Step 8 — Download Your Records
 
 From the **Filings** page you can download at any time:
 
@@ -172,7 +164,7 @@ Keep these for **at least 4 years** for Florida tax/legal purposes.
 | Extraction confidence too low | Submission blocked at Step 4 | Edit fields manually; the form accepts any valid input |
 | Sunbiz site is down | Recovery Agent retries up to 3 times with backoff | Wait; you'll be notified on success or final failure |
 | Payment declines | Sunbiz shows error; no charge made | Re-enter card or use a different one |
-| CAPTCHA fails 3 times | Sunbiz locks the session | Wait 15 min, restart from Step 6 |
+| CAPTCHA fails 3 times | Sunbiz locks the session | Wait 15 min, restart from Step 5 |
 | Browser session crashes mid-submission | Recovery Agent escalates to "manual mode" | Use the **Manual Submit** button to get a checklist of steps to file directly on Sunbiz |
 | You submitted with a typo | Filings cannot be amended without a separate Sunbiz process | File an **Amended Annual Report** ($61.25 fee) through the same platform |
 
@@ -186,7 +178,7 @@ If you manage several entities (e.g., a holding company structure):
 
 1. Go to **Filings → Bulk Import**.
 2. Upload a CSV with one row per entity (`document_number`, `articles_pdf_path`).
-3. The platform processes each entity through Steps 3–5 in parallel and surfaces a single review queue.
+3. The platform processes each entity through Steps 2–4 in parallel and surfaces a single review queue.
 4. You still must approve and complete CAPTCHA/payment **per entity** (Sunbiz requirement).
 
 Typical throughput: **20–30 filings per hour** with one operator.
