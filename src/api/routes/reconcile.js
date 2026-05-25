@@ -1,50 +1,69 @@
 /**
  * Reconcile Route
- * 
- * Scrapes and compares Sunbiz records against extracted data.
- * POST /reconcile - Compare extracted data with Sunbiz state
- * 
+ *
+ * Compares extracted document fields against the live Sunbiz record.
+ *
+ * POST /reconcile
+ *   Request body:
+ *     {
+ *       document_number?: string,
+ *       entity_name?: string,
+ *       extracted: {
+ *         entity_name, registered_agent_name,
+ *         principal_address, mailing_address,
+ *         officers: [{ name, title, address }]
+ *       }
+ *     }
+ *   At minimum, the request must include either `document_number` or
+ *   `extracted.entity_name` so we can locate the Sunbiz record.
+ *
+ *   Response:
+ *     { status: 'success' | 'not_found', sunbiz, extracted, diff }
+ *
  * @module routes/reconcile
  */
 
 const express = require('express');
 const router = express.Router();
 
-/**
- * POST /reconcile
- * 
- * Scrape and compare the current Sunbiz record against extracted data.
- * 
- * Request: { company_id: string }
- * Response: Structured diff showing fields that differ between extracted and Sunbiz state.
- */
+const client = require('../sunbiz/client');
+const { diff } = require('../sunbiz/diff');
+
 router.post('/', async (req, res, next) => {
   try {
-    const { company_id } = req.body;
-    
-    if (!company_id) {
-      return res.error('company_id is required', 400);
+    const { document_number: documentNumber, entity_name: entityName, extracted } = req.body || {};
+
+    if (!extracted || typeof extracted !== 'object') {
+      return res.error('extracted fields are required', 400);
     }
-    
-    // TODO: Integrate with Reconciliation Agent
-    // TODO: Scrape current Sunbiz state using Playwright
-    // TODO: Compare with extracted/stored data
-    // TODO: Generate structured diff
-    
-    // Placeholder response - will be implemented when Reconciliation Agent is ready
-    res.success({
-      company_id,
-      diff: {
-        matched_fields: [],
-        mismatched_fields: [],
-        missing_fields: []
-      },
-      sunbiz_state: null,
-      extracted_state: null,
-      status: 'pending_implementation'
+    if (!documentNumber && !entityName && !extracted.entity_name) {
+      return res.error('document_number or entity_name is required', 400);
+    }
+
+    const lookup = documentNumber
+      ? await client.lookupByDocumentNumber(documentNumber)
+      : await client.searchByName(entityName || extracted.entity_name);
+
+    if (!lookup.found) {
+      return res.success({
+        status: 'not_found',
+        sunbiz: null,
+        extracted,
+        diff: null,
+        error: lookup.error || 'Sunbiz record not found',
+      });
+    }
+
+    const diffResult = diff(extracted, lookup.data);
+
+    return res.success({
+      status: 'success',
+      sunbiz: lookup.data,
+      extracted,
+      diff: diffResult,
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

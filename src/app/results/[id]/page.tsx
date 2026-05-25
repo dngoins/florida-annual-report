@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 type Officer = { name: string; title: string; address?: string | null };
@@ -130,9 +130,206 @@ export default function ResultsPage() {
         <pre style={{ background: '#f3f4f6', padding: '1rem', overflow: 'auto', fontSize: 12 }}>{JSON.stringify(data, null, 2)}</pre>
       </details>
 
-      <div style={{ marginTop: '2rem', padding: '1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6 }}>
-        <strong>Next step (not yet wired):</strong> reconcile these fields against the live Sunbiz record and submit via the Automation Agent. See <a href="/docs/how-to-file-annual-report.md">the filing guide</a>.
-      </div>
+      <ReconcileSection extracted={f} defaultEntityName={f.entity_name || ''} />
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reconciliation section — compares the extracted fields against the live
+// Sunbiz record (currently served by the mock client behind /api/reconcile).
+// ---------------------------------------------------------------------------
+
+type DiffField = {
+  field: string;
+  fieldLabel: string;
+  current_value: string | null;
+  extracted_value: string | null;
+  status: 'match' | 'mismatch' | 'missing_extracted' | 'missing_sunbiz';
+};
+type OfficerChange = {
+  name: string;
+  title: { extracted: string; sunbiz: string; match: boolean };
+  address: { extracted: string | null; sunbiz: string | null; match: boolean };
+};
+type ReconcileResponse = {
+  status: 'success' | 'not_found' | 'error';
+  sunbiz: { entityName: string; documentNumber: string; status: string } | null;
+  diff: {
+    summary: {
+      totalFields: number;
+      matchingFields: number;
+      mismatchedFields: number;
+      missingFields: number;
+      matchPercentage: number;
+      officersMatched: number;
+      officersChanged: number;
+      officersAdded: number;
+      officersRemoved: number;
+    };
+    fields: DiffField[];
+    officers: {
+      matched: Array<{ name: string; title: string; address?: string | null }>;
+      changed: OfficerChange[];
+      added: Array<{ name: string; title: string; address?: string | null }>;
+      removed: Array<{ name: string; title: string; address?: string | null }>;
+    };
+  } | null;
+  error?: string;
+};
+
+function statusBadge(status: DiffField['status']) {
+  const map: Record<DiffField['status'], { bg: string; fg: string; label: string }> = {
+    match: { bg: '#dcfce7', fg: '#166534', label: 'MATCH' },
+    mismatch: { bg: '#fee2e2', fg: '#991b1b', label: 'MISMATCH' },
+    missing_extracted: { bg: '#fef9c3', fg: '#854d0e', label: 'MISSING (from PDF)' },
+    missing_sunbiz: { bg: '#fef9c3', fg: '#854d0e', label: 'MISSING (on Sunbiz)' },
+  };
+  const m = map[status];
+  return (
+    <span style={{ background: m.bg, color: m.fg, padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+      {m.label}
+    </span>
+  );
+}
+
+function ReconcileSection({ extracted, defaultEntityName }: { extracted: ExtractionResult['fields']; defaultEntityName: string }) {
+  const [docNumber, setDocNumber] = useState('P25000065600');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ReconcileResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runReconcile() {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const resp = await fetch('/api/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_number: docNumber.trim() || undefined,
+          entity_name: defaultEntityName,
+          extracted,
+        }),
+      });
+      const json: ReconcileResponse = await resp.json();
+      setResult(json);
+      if (json.status === 'not_found' || json.status === 'error') {
+        setError(json.error || 'Sunbiz lookup failed');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '2rem', padding: '1rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6 }}>
+      <h2 style={{ marginTop: 0 }}>Reconcile with Sunbiz</h2>
+      <p style={{ color: '#6b7280', fontSize: 14, marginTop: 0 }}>
+        Compare the extracted fields above against the live Sunbiz record. (Demo uses a mock client; set <code>SUNBIZ_MOCK=0</code> when the live scraper ships.)
+      </p>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <label htmlFor="doc-num" style={{ fontSize: 14 }}>Document #:</label>
+        <input
+          id="doc-num"
+          value={docNumber}
+          onChange={(e) => setDocNumber(e.target.value)}
+          placeholder="e.g. P25000065600"
+          style={{ padding: '0.4rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 14, width: 220 }}
+        />
+        <button
+          onClick={runReconcile}
+          disabled={loading}
+          style={{ padding: '0.4rem 1rem', background: loading ? '#9ca3af' : '#2563eb', color: 'white', border: 'none', borderRadius: 4, cursor: loading ? 'wait' : 'pointer', fontSize: 14 }}
+        >
+          {loading ? 'Comparing…' : 'Compare with Sunbiz →'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ padding: '0.75rem 1rem', background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
+
+      {result?.status === 'success' && result.diff && result.sunbiz && (
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem', fontSize: 14 }}>
+            <span><strong>Sunbiz entity:</strong> {result.sunbiz.entityName} ({result.sunbiz.documentNumber}) · {result.sunbiz.status}</span>
+            <span><strong>Field match:</strong> {result.diff.summary.matchingFields}/{result.diff.summary.totalFields} ({result.diff.summary.matchPercentage}%)</span>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, marginBottom: '1rem' }}>
+            <thead>
+              <tr style={{ background: '#f3f4f6', textAlign: 'left' }}>
+                <th style={{ padding: '0.5rem 0.75rem' }}>Field</th>
+                <th style={{ padding: '0.5rem 0.75rem' }}>Sunbiz (current)</th>
+                <th style={{ padding: '0.5rem 0.75rem' }}>From PDF</th>
+                <th style={{ padding: '0.5rem 0.75rem' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.diff.fields.map((f) => (
+                <tr key={f.field} style={{ borderBottom: '1px solid #e5e7eb', background: f.status === 'mismatch' ? '#fef2f2' : 'transparent' }}>
+                  <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600 }}>{f.fieldLabel}</td>
+                  <td style={{ padding: '0.5rem 0.75rem' }}>{f.current_value ?? '—'}</td>
+                  <td style={{ padding: '0.5rem 0.75rem' }}>{f.extracted_value ?? '—'}</td>
+                  <td style={{ padding: '0.5rem 0.75rem' }}>{statusBadge(f.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h3 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: 16 }}>Officers</h3>
+          <div style={{ fontSize: 13, color: '#374151', marginBottom: '0.5rem' }}>
+            {result.diff.summary.officersMatched} matched · {result.diff.summary.officersChanged} changed · {result.diff.summary.officersAdded} added · {result.diff.summary.officersRemoved} removed
+          </div>
+          {result.diff.officers.changed.length > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: '0.75rem' }}>
+              <thead>
+                <tr style={{ background: '#fef9c3', textAlign: 'left' }}>
+                  <th style={{ padding: '0.4rem 0.6rem' }}>Officer (changed)</th>
+                  <th style={{ padding: '0.4rem 0.6rem' }}>Sunbiz</th>
+                  <th style={{ padding: '0.4rem 0.6rem' }}>From PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.diff.officers.changed.map((c, i) => (
+                  <React.Fragment key={i}>
+                    <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                      <td rowSpan={2} style={{ padding: '0.4rem 0.6rem', fontWeight: 600 }}>{c.name}</td>
+                      <td style={{ padding: '0.4rem 0.6rem', background: c.title.match ? 'transparent' : '#fee2e2' }}>title: {c.title.sunbiz}</td>
+                      <td style={{ padding: '0.4rem 0.6rem', background: c.title.match ? 'transparent' : '#fee2e2' }}>title: {c.title.extracted}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '0.4rem 0.6rem', background: c.address.match ? 'transparent' : '#fee2e2' }}>addr: {c.address.sunbiz ?? '—'}</td>
+                      <td style={{ padding: '0.4rem 0.6rem', background: c.address.match ? 'transparent' : '#fee2e2' }}>addr: {c.address.extracted ?? '—'}</td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {(result.diff.officers.added.length > 0 || result.diff.officers.removed.length > 0) && (
+            <div style={{ fontSize: 13, color: '#374151' }}>
+              {result.diff.officers.added.length > 0 && (
+                <div><strong>Only in PDF:</strong> {result.diff.officers.added.map((o) => `${o.title} ${o.name}`).join(', ')}</div>
+              )}
+              {result.diff.officers.removed.length > 0 && (
+                <div><strong>Only on Sunbiz:</strong> {result.diff.officers.removed.map((o) => `${o.title} ${o.name}`).join(', ')}</div>
+              )}
+            </div>
+          )}
+
+          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 4, fontSize: 13 }}>
+            <strong>Next step (not yet wired):</strong> review the changes above, then submit the annual report via the Automation Agent.
+            Per CONSTITUTION.md the system must require <code>user_approved: true</code> and pause at CAPTCHA + payment for human completion.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
