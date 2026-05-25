@@ -81,35 +81,44 @@ class SpacyNER:
     def _extract_entity_name(self, text: str, doc) -> tuple[Optional[str], float]:
         """Extract company/entity name."""
         # Florida Articles format: "The name of the corporation is:\n  NAME"
-        # The value is on the next non-empty line(s) after the label.
-        next_line_patterns = [
-            r"(?im)^\s*The\s+name\s+of\s+(?:the\s+|this\s+)?(?:corporation|company|limited\s+liability\s+company|entity)\s+is\s*[:\-]\s*\n+\s*([^\n]+?)\s*$",
-            r"(?im)^\s*Name\s+of\s+(?:Corporation|Company|Entity|LLC)\s*[:\-]\s*\n+\s*([^\n]+?)\s*$",
-            r"(?im)^\s*Entity\s+Name\s*[:\-]\s*\n+\s*([^\n]+?)\s*$",
+        # Use \s+ (which matches newlines) so we also handle flattened OCR output
+        # like "The name of the corporation is: NAME".
+        suffix = (
+            r"(?:LLC|L\.L\.C\.|Inc\.?|Incorporated|"
+            r"Corp\.?|Corporation|Ltd\.?|Company)"
+        )
+        label_value_patterns = [
+            (
+                r"(?i)The\s+name\s+of\s+(?:the\s+|this\s+)?"
+                r"(?:corporation|company|limited\s+liability\s+company|entity)"
+                r"\s+is\s*[:\-]\s*([A-Z][^\n]*?" + suffix + r")"
+            ),
+            (
+                r"(?i)Name\s+of\s+(?:Corporation|Company|Entity|LLC)"
+                r"\s*[:\-]\s*([A-Z][^\n]*?" + suffix + r")"
+            ),
+            (
+                r"(?i)Entity\s+Name\s*[:\-]\s*([A-Z][^\n]*?" + suffix + r")"
+            ),
+            (
+                r"(?i)ARTICLES\s+OF\s+(?:INCORPORATION|ORGANIZATION)"
+                r"\s+(?:OF|FOR)\s+([A-Z][^\n]*?" + suffix + r")"
+            ),
         ]
-        for pattern in next_line_patterns:
+        for pattern in label_value_patterns:
             match = re.search(pattern, text)
             if match:
                 name = match.group(1).strip().strip(".,;:")
                 if name and self._looks_like_entity(name):
                     return name, 0.92
 
-        # Same-line patterns (sample text format: "name of this LLC is: X LLC")
-        inline_patterns = [
-            r"(?:Company|Corporation|Entity|Business)\s*Name\s*[:\-]\s*([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|L\.L\.C\.|Inc\.?|Incorporated|Corp\.?|Corporation|Ltd\.?))",
-            r"(?:The\s+name\s+of\s+(?:this|the))\s+(?:limited\s+liability\s+company|corporation|company|entity)\s+is\s*[:\-]\s*([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|L\.L\.C\.|Inc\.?|Incorporated|Corp\.?|Corporation|Ltd\.?))",
-            r"ARTICLES\s+OF\s+(?:INCORPORATION|ORGANIZATION)\s+(?:OF|FOR)\s+([A-Z][A-Z0-9\s&,.'()-]+?(?:LLC|L\.L\.C\.|INC\.?|INCORPORATED|CORP\.?|CORPORATION|LTD\.?))",
-        ]
-        for pattern in inline_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-            if match:
-                name = match.group(1).strip().strip(".,;:")
-                if name and self._looks_like_entity(name):
-                    return name, 0.88
-
-        # Heuristic: an UPPERCASE line ending with a corporate suffix is almost certainly the name.
+        # Heuristic: an UPPERCASE line ending with a corporate suffix.
+        upper_suffix = (
+            r"(?:LLC|L\.L\.C\.|INC\.?|INCORPORATED|"
+            r"CORP\.?|CORPORATION|LTD\.?|COMPANY)"
+        )
         upper_line = re.search(
-            r"(?m)^\s*([A-Z][A-Z0-9&'.\s,-]+(?:LLC|L\.L\.C\.|INC\.?|INCORPORATED|CORP\.?|CORPORATION|LTD\.?|COMPANY))\s*$",
+            r"(?m)^\s*([A-Z][A-Z0-9&'.\s,-]+" + upper_suffix + r")\s*$",
             text,
         )
         if upper_line:
@@ -121,7 +130,8 @@ class SpacyNER:
         org_entities = [ent for ent in doc.ents if ent.label_ == "ORG"]
         if org_entities:
             for ent in org_entities:
-                if any(s in ent.text.upper() for s in ["LLC", "INC", "CORP", "LTD", "INCORPORATED"]):
+                up = ent.text.upper()
+                if any(s in up for s in ["LLC", "INC", "CORP", "LTD", "INCORPORATED"]):
                     return ent.text.strip(), 0.70
             return org_entities[0].text.strip(), 0.55
 
@@ -135,17 +145,24 @@ class SpacyNER:
         words = name.split()
         if len(words) < 2:
             return False
-        # Must contain at least one all-caps or capitalized word that isn't a stopword.
         stopwords = {"the", "a", "an", "of", "for", "and"}
         meaningful = [w for w in words if w.lower() not in stopwords]
         return len(meaningful) >= 2
 
     def _extract_registered_agent(self, text: str, doc) -> tuple[Optional[str], float]:
         """Extract registered agent name."""
-        # Florida Articles format: agent name on a separate line after the label.
+        # Use \s+ so we match both "label\n  VALUE" and "label: VALUE" formats.
+        name_re = r"([A-Z][A-Z .,'\-]{3,80}?)"
         next_line_patterns = [
-            r"(?im)^\s*(?:Name\s+(?:and\s+Address\s+)?of\s+)?Registered\s+Agent\s*[:\-]?\s*\n+\s*([A-Z][A-Z .,'\-]+?)\s*$",
-            r"(?im)^\s*The\s+name(?:\s+and\s+(?:Florida\s+)?street\s+address)?\s+of\s+the\s+registered\s+agent\s+(?:is)?\s*[:\-]?\s*\n+\s*([A-Z][A-Z .,'\-]+?)\s*$",
+            (
+                r"(?im)(?:Name\s+(?:and\s+Address\s+)?of\s+)?"
+                r"Registered\s+Agent\s*[:\-]?\s+" + name_re + r"\s*$"
+            ),
+            (
+                r"(?im)The\s+name(?:\s+and\s+(?:Florida\s+)?street\s+address)?"
+                r"\s+of\s+the\s+registered\s+agent\s+(?:is)?\s*[:\-]?\s+"
+                + name_re + r"\s*$"
+            ),
         ]
         for pattern in next_line_patterns:
             match = re.search(pattern, text)

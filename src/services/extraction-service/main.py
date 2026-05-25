@@ -205,6 +205,21 @@ async def extract_from_text(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/debug/text/{document_id}")
+async def debug_get_text(document_id: str):
+    """Return the raw OCR text for an uploaded document. Debug only."""
+    if document_id not in document_store:
+        raise HTTPException(status_code=404, detail=f"Document not found: {document_id}")
+    document_bytes = document_store[document_id].get("bytes")
+    if not document_bytes:
+        raise HTTPException(status_code=400, detail="No bytes stored for document")
+    try:
+        text, conf = pipeline._run_ocr(document_bytes, use_ocr=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR failed: {e}")
+    return {"status": "success", "document_id": document_id, "confidence": conf, "length": len(text), "text": text}
+
+
 @app.get("/documents/{document_id}")
 async def get_document(document_id: str):
     """Get document metadata and extraction status."""
