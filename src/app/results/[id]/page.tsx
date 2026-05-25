@@ -130,7 +130,7 @@ export default function ResultsPage() {
         <pre style={{ background: '#f3f4f6', padding: '1rem', overflow: 'auto', fontSize: 12 }}>{JSON.stringify(data, null, 2)}</pre>
       </details>
 
-      <ReconcileSection extracted={f} defaultEntityName={f.entity_name || ''} />
+      <ReconcileSection extracted={f} defaultEntityName={f.entity_name || ''} confidence={c} />
     </main>
   );
 }
@@ -193,7 +193,7 @@ function statusBadge(status: DiffField['status']) {
   );
 }
 
-function ReconcileSection({ extracted, defaultEntityName }: { extracted: ExtractionResult['fields']; defaultEntityName: string }) {
+function ReconcileSection({ extracted, defaultEntityName, confidence }: { extracted: ExtractionResult['fields']; defaultEntityName: string; confidence: Record<string, number> }) {
   const [docNumber, setDocNumber] = useState('P25000065600');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReconcileResponse | null>(null);
@@ -324,10 +324,258 @@ function ReconcileSection({ extracted, defaultEntityName }: { extracted: Extract
             </div>
           )}
 
-          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 4, fontSize: 13 }}>
-            <strong>Next step (not yet wired):</strong> review the changes above, then submit the annual report via the Automation Agent.
-            Per CONSTITUTION.md the system must require <code>user_approved: true</code> and pause at CAPTCHA + payment for human completion.
+          <SubmitSection
+            extracted={extracted}
+            confidence={confidence}
+            documentNumber={docNumber}
+            mismatchedFields={result.diff.summary.mismatchedFields}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Submit section — runs after Reconcile. Enforces user_approved + confidence
+// gate, streams live events from the Automation Agent (mock or Playwright),
+// and surfaces CAPTCHA / payment pauses with Resume controls.
+// ---------------------------------------------------------------------------
+
+type SubmissionEvent = {
+  type: string;
+  timestamp: string;
+  message?: string;
+  field?: string;
+  value?: string;
+  confirmationNumber?: string;
+  state?: string;
+  [k: string]: unknown;
+};
+
+function eventColor(type: string): string {
+  if (type === 'error') return '#fee2e2';
+  if (type === 'confirmed') return '#dcfce7';
+  if (type === 'captcha_reached' || type === 'payment_reached') return '#fef3c7';
+  if (type === 'field_filled') return '#f3f4f6';
+  return '#eff6ff';
+}
+
+function SubmitSection({
+  extracted,
+  confidence,
+  documentNumber,
+  mismatchedFields,
+}: {
+  extracted: ExtractionResult['fields'];
+  confidence: Record<string, number>;
+  documentNumber: string;
+  mismatchedFields: number;
+}) {
+  const [userApproved, setUserApproved] = useState(false);
+  const [overrideMismatch, setOverrideMismatch] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [events, setEvents] = useState<SubmissionEvent[]>([]);
+  const [state, setState] = useState<string>('idle');
+  const [signature, setSignature] = useState<string>(extracted.registered_agent_name || '');
+  const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+
+  // Confidence gate: every field >= 0.75 (officers checked too).
+  const lowConfidenceFields = Object.entries(confidence)
+    .filter(([, score]) => score < 0.75)
+    .map(([field]) => field);
+  const confidenceOk = lowConfidenceFields.length === 0;
+  const mismatchOk = mismatchedFields === 0 || overrideMismatch;
+  const canSubmit = userApproved && confidenceOk && mismatchOk && !submissionId;
+
+  useEffect(() => {
+    if (!submissionId) return;
+    const es = new EventSource(`/api/submit/${submissionId}/events`);
+    const handler = (e: MessageEvent) => {
+      try {
+        const ev = JSON.parse(e.data) as SubmissionEvent;
+        setEvents((prev) => [...prev, ev]);
+        if (ev.type === 'audit' && typeof ev.state === 'string') setState(ev.state);
+        if (ev.type === 'captcha_reached') setState('awaiting_captcha');
+        if (ev.type === 'payment_reached') setState('awaiting_payment');
+        if (ev.type === 'confirmed' && typeof ev.confirmationNumber === 'string') {
+          setConfirmation(ev.confirmationNumber);
+          setState('confirmed');
+        }
+        if (ev.type === 'error') {
+          setError(typeof ev.message === 'string' ? ev.message : 'submission failed');
+          setState('failed');
+        }
+      } catch { /* ignore parse errors */ }
+    };
+    // Listen on every named event type the server emits.
+    [
+      'submission_created', 'navigation', 'field_filled', 'captcha_reached',
+      'payment_reached', 'resumed', 'form_complete', 'submitting',
+      'confirmed', 'error', 'audit',
+    ].forEach((t) => es.addEventListener(t, handler as EventListener));
+    es.onerror = () => { es.close(); };
+    return () => es.close();
+  }, [submissionId]);
+
+  async function startSubmit() {
+    setError(null);
+    setEvents([]);
+    setConfirmation(null);
+    try {
+      const resp = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_approved: true,
+          document_number: documentNumber,
+          signature,
+          extracted,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok || json.status === 'error') {
+        setError(json.error || 'submission failed');
+        return;
+      }
+      setSubmissionId(json.submission_id);
+      setState(json.state || 'running');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'network error');
+    }
+  }
+
+  async function resumeSubmit() {
+    if (!submissionId) return;
+    setError(null);
+    try {
+      const resp = await fetch(`/api/submit/${submissionId}/resume`, { method: 'POST' });
+      const json = await resp.json();
+      if (!resp.ok || json.status === 'error') {
+        setError(json.error || 'resume failed');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'network error');
+    }
+  }
+
+  const awaitingHuman = state === 'awaiting_captcha' || state === 'awaiting_payment';
+
+  return (
+    <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#ffffff', border: '2px solid #2563eb', borderRadius: 6 }}>
+      <h3 style={{ marginTop: 0, color: '#1e40af' }}>Submit to Sunbiz</h3>
+      <p style={{ fontSize: 13, color: '#374151', marginTop: 0 }}>
+        The Automation Agent will fill the Annual Report on sunbiz.org and pause for you to complete CAPTCHA and payment.
+        Per CONSTITUTION.md, submission requires <code>user_approved: true</code> and is blocked when any field has confidence &lt; 0.75.
+      </p>
+
+      {!confidenceOk && (
+        <div style={{ padding: '0.5rem 0.75rem', background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 13, marginBottom: '0.5rem' }}>
+          <strong>Blocked:</strong> these fields have confidence &lt; 0.75 — review them above before submitting: <code>{lowConfidenceFields.join(', ')}</code>
+        </div>
+      )}
+
+      {mismatchedFields > 0 && (
+        <div style={{ padding: '0.5rem 0.75rem', background: '#fef3c7', color: '#854d0e', borderRadius: 4, fontSize: 13, marginBottom: '0.5rem' }}>
+          <strong>{mismatchedFields} field(s) differ from Sunbiz.</strong>{' '}
+          <label style={{ marginLeft: 4 }}>
+            <input type="checkbox" checked={overrideMismatch} onChange={(e) => setOverrideMismatch(e.target.checked)} />{' '}
+            I&apos;ve reviewed the differences and want to submit the updated values.
+          </label>
+        </div>
+      )}
+
+      <div style={{ marginBottom: '0.5rem' }}>
+        <label style={{ fontSize: 14 }}>
+          Electronic signature:{' '}
+          <input
+            value={signature}
+            onChange={(e) => setSignature(e.target.value)}
+            disabled={!!submissionId}
+            style={{ padding: '0.3rem 0.5rem', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 14, width: 280 }}
+          />
+        </label>
+      </div>
+
+      <label style={{ display: 'block', marginBottom: '0.75rem', fontSize: 14 }}>
+        <input
+          type="checkbox"
+          checked={userApproved}
+          onChange={(e) => setUserApproved(e.target.checked)}
+          disabled={!!submissionId}
+        />{' '}
+        I have reviewed the data above and approve submission to Sunbiz on behalf of this entity.
+      </label>
+
+      <button
+        onClick={startSubmit}
+        disabled={!canSubmit}
+        style={{
+          padding: '0.5rem 1.25rem',
+          background: canSubmit ? '#16a34a' : '#9ca3af',
+          color: 'white',
+          border: 'none',
+          borderRadius: 4,
+          cursor: canSubmit ? 'pointer' : 'not-allowed',
+          fontSize: 14,
+          fontWeight: 600,
+        }}
+      >
+        {submissionId ? 'Submission in progress…' : 'Submit to Sunbiz →'}
+      </button>
+
+      {error && (
+        <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
+      {submissionId && (
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{ fontSize: 13, color: '#374151', marginBottom: '0.5rem' }}>
+            <strong>Submission:</strong> <code>{submissionId}</code> · state: <code>{state}</code>
           </div>
+
+          {awaitingHuman && (
+            <div style={{ padding: '0.75rem 1rem', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 4, marginBottom: '0.75rem' }}>
+              <div style={{ fontWeight: 600, color: '#854d0e' }}>
+                {state === 'awaiting_captcha' ? '🛑 CAPTCHA required' : '💳 Payment required'}
+              </div>
+              <div style={{ fontSize: 13, color: '#854d0e', marginTop: '0.25rem' }}>
+                Complete the step in the Sunbiz browser tab, then click below to continue.
+              </div>
+              <button
+                onClick={resumeSubmit}
+                style={{ marginTop: '0.5rem', padding: '0.4rem 1rem', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14 }}
+              >
+                I&apos;ve completed {state === 'awaiting_captcha' ? 'CAPTCHA' : 'payment'} — continue →
+              </button>
+            </div>
+          )}
+
+          {confirmation && (
+            <div style={{ padding: '0.75rem 1rem', background: '#dcfce7', border: '1px solid #16a34a', borderRadius: 4, marginBottom: '0.75rem' }}>
+              <div style={{ fontWeight: 600, color: '#166534' }}>✓ Filing confirmed</div>
+              <div style={{ fontSize: 14, color: '#166534' }}>
+                Confirmation number: <code>{confirmation}</code>
+              </div>
+            </div>
+          )}
+
+          <details>
+            <summary style={{ cursor: 'pointer', color: '#2563eb', fontSize: 13 }}>Event log ({events.length})</summary>
+            <div style={{ maxHeight: 300, overflow: 'auto', marginTop: '0.5rem', border: '1px solid #e5e7eb', borderRadius: 4 }}>
+              {events.map((ev, i) => (
+                <div key={i} style={{ padding: '0.3rem 0.6rem', background: eventColor(ev.type), borderBottom: '1px solid #e5e7eb', fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                  <span style={{ color: '#6b7280' }}>{new Date(ev.timestamp).toLocaleTimeString()}</span>{' '}
+                  <strong>{ev.type}</strong>
+                  {ev.field && <> · {ev.field}{ev.value ? `: ${ev.value}` : ''}</>}
+                  {ev.message && <> · {ev.message}</>}
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       )}
     </div>
