@@ -80,93 +80,171 @@ class SpacyNER:
 
     def _extract_entity_name(self, text: str, doc) -> tuple[Optional[str], float]:
         """Extract company/entity name."""
-        # Pattern-based extraction
-        patterns = [
-            r"(?:Company|Corporation|Entity|Business)"
-            r"\s*Name[:\s]+([A-Z][A-Za-z0-9\s&,.'()-]+"
-            r"(?:LLC|Inc\.?|Corp\.?|Ltd\.?)?)",
-            r"(?:Name of|Named)\s+([A-Z][A-Za-z0-9\s&,.'()-]+(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
-            r"ARTICLES OF (?:INCORPORATION|ORGANIZATION)\s+(?:OF|FOR)\s+"
-            r"([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
-            r"(?:company|entity|LLC|corporation) is[:\s]+"
-            r"([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|Inc\.?|Corp\.?|Ltd\.?))",
+        # Florida Articles format: "The name of the corporation is:\n  NAME"
+        # The value is on the next non-empty line(s) after the label.
+        next_line_patterns = [
+            r"(?im)^\s*The\s+name\s+of\s+(?:the\s+|this\s+)?(?:corporation|company|limited\s+liability\s+company|entity)\s+is\s*[:\-]\s*\n+\s*([^\n]+?)\s*$",
+            r"(?im)^\s*Name\s+of\s+(?:Corporation|Company|Entity|LLC)\s*[:\-]\s*\n+\s*([^\n]+?)\s*$",
+            r"(?im)^\s*Entity\s+Name\s*[:\-]\s*\n+\s*([^\n]+?)\s*$",
         ]
+        for pattern in next_line_patterns:
+            match = re.search(pattern, text)
+            if match:
+                name = match.group(1).strip().strip(".,;:")
+                if name and self._looks_like_entity(name):
+                    return name, 0.92
 
-        for pattern in patterns:
+        # Same-line patterns (sample text format: "name of this LLC is: X LLC")
+        inline_patterns = [
+            r"(?:Company|Corporation|Entity|Business)\s*Name\s*[:\-]\s*([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|L\.L\.C\.|Inc\.?|Incorporated|Corp\.?|Corporation|Ltd\.?))",
+            r"(?:The\s+name\s+of\s+(?:this|the))\s+(?:limited\s+liability\s+company|corporation|company|entity)\s+is\s*[:\-]\s*([A-Z][A-Za-z0-9\s&,.'()-]+?(?:LLC|L\.L\.C\.|Inc\.?|Incorporated|Corp\.?|Corporation|Ltd\.?))",
+            r"ARTICLES\s+OF\s+(?:INCORPORATION|ORGANIZATION)\s+(?:OF|FOR)\s+([A-Z][A-Z0-9\s&,.'()-]+?(?:LLC|L\.L\.C\.|INC\.?|INCORPORATED|CORP\.?|CORPORATION|LTD\.?))",
+        ]
+        for pattern in inline_patterns:
             match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
             if match:
-                name = match.group(1).strip()
-                return name, 0.85
+                name = match.group(1).strip().strip(".,;:")
+                if name and self._looks_like_entity(name):
+                    return name, 0.88
 
-        # Fallback to NER ORG entities
+        # Heuristic: an UPPERCASE line ending with a corporate suffix is almost certainly the name.
+        upper_line = re.search(
+            r"(?m)^\s*([A-Z][A-Z0-9&'.\s,-]+(?:LLC|L\.L\.C\.|INC\.?|INCORPORATED|CORP\.?|CORPORATION|LTD\.?|COMPANY))\s*$",
+            text,
+        )
+        if upper_line:
+            name = upper_line.group(1).strip().strip(".,;:")
+            if self._looks_like_entity(name):
+                return name, 0.80
+
+        # NER fallback for ORG entities
         org_entities = [ent for ent in doc.ents if ent.label_ == "ORG"]
         if org_entities:
-            # Take the first ORG that looks like a company name
             for ent in org_entities:
-                if any(suffix in ent.text.upper() for suffix in ["LLC", "INC", "CORP", "LTD"]):
-                    return ent.text, 0.70
-            return org_entities[0].text, 0.60
+                if any(s in ent.text.upper() for s in ["LLC", "INC", "CORP", "LTD", "INCORPORATED"]):
+                    return ent.text.strip(), 0.70
+            return org_entities[0].text.strip(), 0.55
 
         return None, 0.0
+
+    @staticmethod
+    def _looks_like_entity(name: str) -> bool:
+        """Reject obvious junk like 'the corp' or single-word fragments."""
+        if len(name) < 4 or len(name) > 200:
+            return False
+        words = name.split()
+        if len(words) < 2:
+            return False
+        # Must contain at least one all-caps or capitalized word that isn't a stopword.
+        stopwords = {"the", "a", "an", "of", "for", "and"}
+        meaningful = [w for w in words if w.lower() not in stopwords]
+        return len(meaningful) >= 2
 
     def _extract_registered_agent(self, text: str, doc) -> tuple[Optional[str], float]:
         """Extract registered agent name."""
-        patterns = [
-            r"Registered Agent\s*[:\-]\s*([A-Z][A-Za-z\s,.'()-]+?)(?:\n|Address|$)",
-            r"Agent Name\s*[:\-]\s*([A-Z][A-Za-z\s,.'()-]+?)(?:\n|$)",
-            r"The registered agent (?:is|shall be)\s*[:\-]?\s*([A-Z][A-Za-z\s,.'()-]+?)(?:\n|,|$)",
+        # Florida Articles format: agent name on a separate line after the label.
+        next_line_patterns = [
+            r"(?im)^\s*(?:Name\s+(?:and\s+Address\s+)?of\s+)?Registered\s+Agent\s*[:\-]?\s*\n+\s*([A-Z][A-Z .,'\-]+?)\s*$",
+            r"(?im)^\s*The\s+name(?:\s+and\s+(?:Florida\s+)?street\s+address)?\s+of\s+the\s+registered\s+agent\s+(?:is)?\s*[:\-]?\s*\n+\s*([A-Z][A-Z .,'\-]+?)\s*$",
         ]
+        for pattern in next_line_patterns:
+            match = re.search(pattern, text)
+            if match:
+                name = self._clean_person_name(match.group(1))
+                if name:
+                    return name, 0.90
 
-        for pattern in patterns:
+        # Same-line patterns
+        inline_patterns = [
+            r"Registered\s+Agent\s*[:\-]\s*([A-Z][A-Za-z .,'\-]+?)(?:\n|Address|Agent\s+Address|$)",
+            r"Agent\s+Name\s*[:\-]\s*([A-Z][A-Za-z .,'\-]+?)(?:\n|$)",
+            r"The\s+registered\s+agent\s+(?:is|shall\s+be)\s*[:\-]?\s*([A-Z][A-Za-z .,'\-]+?)(?:\n|,|$)",
+        ]
+        for pattern in inline_patterns:
             match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
             if match:
-                name = match.group(1).strip()
-                # Clean up trailing punctuation
-                name = re.sub(r"[,.:]+$", "", name).strip()
-                return name, 0.85
+                name = self._clean_person_name(match.group(1))
+                if name:
+                    return name, 0.85
 
-        # NER fallback for PERSON entities near "agent" keyword
-        agent_idx = text.lower().find("agent")
+        # NER fallback: PERSON entity near "agent" keyword
+        agent_idx = text.lower().find("registered agent")
         if agent_idx >= 0:
-            # Look for PERSON entities near the word "agent"
             for ent in doc.ents:
-                if ent.label_ == "PERSON":
-                    if abs(ent.start_char - agent_idx) < 200:
-                        return ent.text, 0.65
+                if ent.label_ == "PERSON" and abs(ent.start_char - agent_idx) < 300:
+                    name = self._clean_person_name(ent.text)
+                    if name:
+                        return name, 0.65
 
         return None, 0.0
+
+    @staticmethod
+    def _clean_person_name(raw: str) -> Optional[str]:
+        """Trim trailing role words ('SEC', 'PRES', etc.) and punctuation from a person name."""
+        name = raw.strip().strip(".,;:")
+        # Drop trailing role abbreviations / titles that get glommed onto the name.
+        name = re.sub(
+            r"\s+(?:SEC|PRES|VP|CEO|CFO|COO|DIR|MGR|MGRM?|MANAGER|SECRETARY|PRESIDENT|TREASURER|DIRECTOR)\b.*$",
+            "",
+            name,
+            flags=re.IGNORECASE,
+        ).strip()
+        # Reject single tokens.
+        if len(name.split()) < 2:
+            return None
+        if len(name) < 4 or len(name) > 80:
+            return None
+        return name
 
     def _extract_address(self, text: str, address_type: str) -> tuple[Optional[str], float]:
         """Extract address by type (principal or mailing)."""
-        # Build pattern based on address type
         if address_type == "principal":
-            prefix_patterns = [
-                r"Principal (?:Business )?Address[:\s]+",
-                r"Principal Place of Business[:\s]+",
-                r"Business Address[:\s]+",
+            label_patterns = [
+                r"(?:The\s+)?Principal\s+(?:Place\s+of\s+Business|Business\s+Address|Address)(?:\s+address)?(?:\s+is)?",
+                r"Principal\s+(?:Business\s+)?Address(?:\s+is)?",
             ]
         else:
-            prefix_patterns = [
-                r"Mailing Address[:\s]+",
-                r"Mail(?:ing)? Address[:\s]+",
+            label_patterns = [
+                r"(?:The\s+)?Mailing\s+Address(?:\s+of\s+the\s+(?:corporation|company|entity|LLC))?(?:\s+is)?",
+                r"Mail(?:ing)?\s+Address(?:\s+is)?",
             ]
 
-        # Address pattern (street, city, state ZIP)
-        address_pattern = r"([0-9]+[A-Za-z0-9\s,.'#-]+(?:FL|Florida)[,\s]+[0-9]{5}(?:-[0-9]{4})?)"
-
-        for prefix in prefix_patterns:
-            full_pattern = prefix + address_pattern
-            match = re.search(full_pattern, text, re.IGNORECASE | re.MULTILINE)
+        # Block-capture: label line, then 1-4 indented/non-empty lines, then blank line OR new label.
+        for label in label_patterns:
+            pattern = (
+                rf"(?im)^\s*{label}\s*[:\-]\s*\n"
+                r"((?:[ \t]*[^\n]+\n){1,4}?)"
+                r"(?=\s*$|\s*(?:Article|The\s+(?:mailing|principal|name)|Registered|Name\s+and\s+Address))"
+            )
+            match = re.search(pattern, text)
             if match:
-                address = match.group(1).strip()
-                return address, 0.80
+                addr = self._normalize_address_block(match.group(1))
+                if addr:
+                    return addr, 0.88
 
-        # Generic address extraction as fallback
-        generic_match = re.search(address_pattern, text)
-        if generic_match:
-            return generic_match.group(1).strip(), 0.50
+        # Same-line fallback: "Principal Address: 123 Main St, City, FL 33xxx"
+        flat_pattern = (
+            r"([0-9]+[A-Za-z0-9\s.,#'\-]+?,\s*[A-Za-z .]+,?\s*(?:FL|Florida)\.?\s*[,\s]+[0-9]{5}(?:-[0-9]{4})?)"
+        )
+        for label in label_patterns:
+            full = rf"(?i){label}\s*[:\-]\s*{flat_pattern}"
+            match = re.search(full, text)
+            if match:
+                return match.group(1).strip(), 0.80
 
         return None, 0.0
+
+    @staticmethod
+    def _normalize_address_block(block: str) -> Optional[str]:
+        """Collapse a multi-line address block into a single comma-separated string."""
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if not lines:
+            return None
+        joined = ", ".join(lines)
+        # Must look like an address: contain a ZIP or a state abbreviation.
+        if not re.search(r"\b[A-Z]{2}\.?\s*\d{5}\b|\bFL\.?\s*\d{5}\b|\d{5}(?:-\d{4})?", joined):
+            return None
+        return joined
 
     def _extract_officers(self, text: str, doc) -> tuple[list[Officer], float]:
         """Extract officers/directors."""
