@@ -50,5 +50,5 @@ export interface AuditLogResponse {
 export interface PaginationProps {
   currentPage: number;
   totalPages: number;
-  onPageChange: (page: number) => void;
+  onPageChange: (_page: number) => void;
 }

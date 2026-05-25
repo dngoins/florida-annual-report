@@ -5,7 +5,7 @@ const MAX_SIZE_MB = 20;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 interface FileUploaderProps {
-  onUpload?: (file: File) => Promise<void>;
+  onUpload?: (_file: File) => Promise<void>;
 }
 
 export function FileUploader({ onUpload }: FileUploaderProps) {
