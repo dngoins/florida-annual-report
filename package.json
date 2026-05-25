@@ -53,6 +53,7 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.31.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "mssql": "^12.5.4",
