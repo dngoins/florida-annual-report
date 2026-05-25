@@ -47,18 +47,24 @@ export default function ResultsPage() {
   const params = useParams();
   const id = params.id as string;
   const [data, setData] = useState<ExtractionResult | null>(null);
-  const [missing, setMissing] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem(`extraction:${id}`);
-    if (!raw) {
-      setMissing(true);
-      return;
+    // sessionStorage is browser-only; reading on mount avoids SSR mismatch.
+    const raw = typeof window !== 'undefined' ? sessionStorage.getItem(`extraction:${id}`) : null;
+    if (raw) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setData(JSON.parse(raw));
     }
-    setData(JSON.parse(raw));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReady(true);
   }, [id]);
 
-  if (missing) {
+  if (!ready) {
+    return <main style={{ padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>Loading…</main>;
+  }
+
+  if (!data) {
     return (
       <main style={{ maxWidth: 800, margin: '3rem auto', padding: '0 1.5rem', fontFamily: 'system-ui, sans-serif' }}>
         <h1>No result found</h1>
@@ -66,10 +72,6 @@ export default function ResultsPage() {
         <p><a href="/upload">→ Go to Upload</a></p>
       </main>
     );
-  }
-
-  if (!data) {
-    return <main style={{ padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>Loading…</main>;
   }
 
   const f = data.fields;
